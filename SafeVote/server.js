@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const port = 8080;
+const port = process.env.PORT || 8081;
 
 http.createServer((req, res) => {
     let url = req.url.split('?')[0];

@@ -151,7 +151,16 @@
                     <p style="color:var(--text-muted); margin-bottom:2rem">Enter your unique student ID to vote.</p>
                     <div class="form-group">
                         <label class="form-label">Student ID Number</label>
-                        <input type="number" id="student-reg-input" class="form-input" placeholder="e.g. 714023107061">
+                        <input type="text" id="student-reg-input" class="form-input" placeholder="e.g. 714023107061"
+                            inputmode="numeric">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <div style="position: relative;">
+                            <input type="password" id="student-pass-input" class="form-input" value="atkboss">
+                            <i data-lucide="eye" id="toggle-pass-icon" onclick="window.app.togglePasswordVisibility()"
+                                style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; width: 18px; height: 18px;"></i>
+                        </div>
                     </div>
                     <button onclick="window.app.handleStudentLogin()" class="btn-primary-custom"
                         style="width:100%; padding:1.25rem;">Verify & Enter Portal</button>

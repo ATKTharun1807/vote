@@ -48,15 +48,28 @@ export class App {
     }
 
     handleStudentLogin() {
-        const input = document.getElementById('student-reg-input');
-        const val = input.value.trim();
+        const idInput = document.getElementById('student-reg-input');
+        const passInput = document.getElementById('student-pass-input');
+        const val = idInput.value.trim();
+        const pass = passInput.value.trim();
+
         if (!val) return this.showToast("Please enter your ID", "error");
+        if (!pass) return this.showToast("Please enter your password", "error");
 
         const student = STUDENT_DATABASE.find(s => s.regNo === parseInt(val));
         if (!student) return this.showToast("Student ID not found", "error");
 
+        if (!api.verifyStudent(student.regNo, pass)) {
+            return this.showToast("Invalid password", "error");
+        }
+
         this.role = 'voter';
         this.currentUser = student;
+
+        if (pass === 'atkboss') {
+            this.showToast("Security Alert: Please reset your default password!", "error");
+        }
+
         this.enterDashboard();
     }
 
@@ -147,16 +160,18 @@ export class App {
 
     renderVoteTab(container) {
         const hasVoted = api.voterIds.includes(this.currentUser.regNo.toString());
+
         let html = `
             <div class="card-custom bg-light mb-4" style="border:none; background:#f1f5f9; padding:1.5rem">
-                <h2 style="margin:0; color:var(--primary)">${api.electionName}</h2>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start">
                     <div>
-                        <h4 style="margin:0">Welcome, ${this.currentUser.name}</h4>
+                        <h2 style="margin:0; color:var(--primary)">${api.electionName}</h2>
+                        <h4 style="margin:0.5rem 0 0">Welcome, ${this.currentUser.name}</h4>
                         <p style="margin:0.5rem 0 0; font-size:0.8rem; color:#64748b">Status: <span style="color:var(--primary); font-weight:800">${api.electionStatus}</span></p>
                     </div>
                     <div style="text-align:right">
                          <div style="font-size:0.75rem; font-weight:700; color:#64748b">ID: ${this.currentUser.regNo}</div>
+                         <button onclick="window.app.handleResetPassword()" class="btn-primary-custom" style="margin-top:0.75rem; padding:0.4rem 0.8rem; font-size:0.7rem; background:#64748b">RESET PASSWORD</button>
                     </div>
                 </div>
             </div>
@@ -172,6 +187,15 @@ export class App {
             `;
         }
 
+        if (hasVoted) {
+            html += `
+                <div class="card-custom mb-4" style="background:#f0fdf4; border-color:#11b981; color:#065f46; text-align:center; padding:1rem">
+                    <i data-lucide="check-circle" size="18" style="vertical-align:middle;margin-right:0.5rem"></i>
+                    <b>voted successfully</b>. Your participation is recorded on the blockchain.
+                </div>
+            `;
+        }
+
         html += `
             <div class="mb-4">
                 <input type="text" oninput="window.app.searchQuery=this.value;window.app.renderContent()" placeholder="Search candidates..." class="form-input" style="max-width:400px" value="${this.searchQuery}">
@@ -181,13 +205,15 @@ export class App {
 
         const filtered = api.localCandidates.filter(c => c.name.toLowerCase().includes(this.searchQuery.toLowerCase()));
         filtered.forEach(c => {
-            const disabled = api.electionStatus !== 'ONGOING' || hasVoted;
+            const isEnded = api.electionStatus === 'ENDED';
+            // Disabled only if ended. If ongoing, keep enabled even if voted to show toast.
+            const disabled = isEnded;
             html += `
                 <div class="card-custom" style="text-align:center">
                     <h3 style="margin:0">${c.name}</h3>
                     <p style="color:#64748b; font-size:0.9rem">${c.party}</p>
-                    <button onclick="window.app.castVote('${c.id}', this)" ${disabled ? 'disabled' : ''} class="btn-primary-custom" style="width:100%; margin-top:1rem">
-                        ${hasVoted ? 'VOTE CAST' : (api.electionStatus === 'ENDED' ? 'ENDED' : 'VOTE')}
+                    <button onclick="window.app.castVote('${c.id}', this)" ${disabled ? 'disabled' : ''} class="btn-primary-custom" style="width:100%; margin-top:1rem; ${hasVoted ? 'opacity:0.7' : ''}">
+                        ${hasVoted ? 'VOTED' : (isEnded ? 'ENDED' : 'VOTE')}
                     </button>
                 </div>
             `;
@@ -233,6 +259,14 @@ export class App {
                     <div class="feature-title" style="color: #166534;">Export Data</div>
                     <p style="font-size:0.8rem; color:#15803d; margin-bottom:1rem">Generate PDF report with results.</p>
                     <button onclick="window.app.handleDownloadPDF()" class="btn-primary-custom" style="background:#16a34a; width:100%">GENERATE PDF</button>
+                </div>
+                <div class="feature-box" style="border-color: #f1f5f9; background: #f8fafc;">
+                    <div class="feature-title" style="color: #475569;">System Security</div>
+                    <p style="font-size:0.8rem; color:#64748b; margin-bottom:1rem">Change Admin Security Key</p>
+                    <div style="display:flex; gap:0.5rem">
+                         <input id="new-admin-key" type="password" class="form-input" placeholder="New Key" style="font-size:0.8rem">
+                         <button onclick="window.app.handleUpdateAdminKey()" class="btn-primary-custom" style="padding:0.5rem 1rem; background:#475569">UPDATE</button>
+                    </div>
                 </div>
             </div>
 
@@ -309,6 +343,46 @@ export class App {
         }
     }
 
+    handleUpdateAdminKey() {
+        const key = document.getElementById('new-admin-key').value.trim();
+        if (!key) return this.showToast("Enter a new key", "error");
+
+        api.updateAdminKey(key).then(() => {
+            this.showToast("Admin key updated! Next login will require new key.");
+            document.getElementById('new-admin-key').value = '';
+        });
+    }
+
+    handleResetPassword() {
+        const current = prompt("Confirm current password:");
+        if (!current) return;
+
+        if (!api.verifyStudent(this.currentUser.regNo, current)) {
+            return this.showToast("Incorrect current password", "error");
+        }
+
+        const newPass = prompt("Enter new password:");
+        if (newPass && newPass.length >= 4) {
+            api.updateStudentPassword(this.currentUser.regNo, newPass);
+            this.showToast("Password updated successfully!");
+        } else if (newPass) {
+            this.showToast("Password too short (min 4 chars)", "error");
+        }
+    }
+
+    togglePasswordVisibility() {
+        const input = document.getElementById('student-pass-input');
+        const icon = document.getElementById('toggle-pass-icon');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.setAttribute('data-lucide', 'eye-off');
+        } else {
+            input.type = 'password';
+            icon.setAttribute('data-lucide', 'eye');
+        }
+        if (window.lucide) window.lucide.createIcons();
+    }
+
     renderResultsTab(container) {
         const sorted = [...api.localCandidates].sort((a, b) => b.votes - a.votes);
         const winner = this.getWinner();
@@ -379,11 +453,15 @@ export class App {
     }
 
     async castVote(cid, btn) {
+        if (api.voterIds.includes(this.currentUser.regNo.toString())) {
+            return this.showToast("ur alrady vote", "error");
+        }
+
         btn.textContent = "Processing...";
         btn.disabled = true;
         const res = await api.castVote(this.currentUser.regNo, cid);
         if (res.success) {
-            this.showToast("Vote cast successfully!");
+            this.showToast("voted successfully");
             this.renderContent();
         } else {
             this.showToast(res.msg, "error");

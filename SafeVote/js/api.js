@@ -12,6 +12,7 @@ export class VotingAPI {
         this.localBlockchain = [];
         this.totalVotersCount = 0;
         this.voterIds = [];
+        this.persistentStudentPasswords = {}; // Storage for student passwords
         this.useLocalStorage = false;
 
         // Load initial state from LocalStorage as a fallback safety
@@ -24,6 +25,7 @@ export class VotingAPI {
             this.localCandidates = data.candidates || [];
             this.localBlockchain = data.blockchain || [];
             this.voterIds = data.voters || [];
+            this.persistentStudentPasswords = data.studentPasswords || {};
             this.totalVotersCount = this.voterIds.length;
             this.electionStatus = data.status || 'NOT_STARTED';
             this.electionName = data.electionName || 'Student Council Election';
@@ -40,12 +42,34 @@ export class VotingAPI {
             candidates: this.localCandidates,
             blockchain: this.localBlockchain,
             voters: this.voterIds,
+            studentPasswords: this.persistentStudentPasswords,
             status: this.electionStatus,
             electionName: this.electionName,
             adminKey: this.adminKey
         };
         localStorage.setItem('safevote_backup', JSON.stringify(data));
         if (window.app) window.app.refreshUI();
+    }
+
+    verifyStudent(vid, pass) {
+        const stored = this.persistentStudentPasswords[vid.toString()] || 'atkboss';
+        return stored === pass;
+    }
+
+    updateStudentPassword(vid, newPass) {
+        this.persistentStudentPasswords[vid.toString()] = newPass;
+        this.saveToStorage();
+        return true;
+    }
+
+    async updateAdminKey(newKey) {
+        this.adminKey = newKey;
+        if (this.useLocalStorage) {
+            this.saveToStorage();
+            return true;
+        }
+        await setDoc(doc(this.db, this.PATHS(appId).config, 'main'), { adminKey: newKey }, { merge: true });
+        return true;
     }
 
     async initAuth() {
@@ -77,9 +101,10 @@ export class VotingAPI {
                     this.electionStatus = data.status || 'NOT_STARTED';
                     this.electionName = data.electionName || 'Student Council Election';
                     this.adminKey = data.adminKey || 'admin123';
+                    this.persistentStudentPasswords = data.studentPasswords || {};
                     if (window.app) window.app.refreshUI();
                 } else {
-                    setDoc(doc(db, p.config, 'main'), { status: 'NOT_STARTED', adminKey: 'admin123', electionName: 'Student Council Election' });
+                    setDoc(doc(db, p.config, 'main'), { status: 'NOT_STARTED', adminKey: 'admin123', electionName: 'Student Council Election', studentPasswords: {} });
                 }
             });
 
@@ -137,6 +162,7 @@ export class VotingAPI {
             this.localBlockchain.push(block);
             const cand = this.localCandidates.find(c => c.id === cid);
             if (cand) cand.votes = (cand.votes || 0) + 1;
+
             this.saveToStorage();
             return { success: true };
         }
@@ -148,6 +174,7 @@ export class VotingAPI {
             const newBlockRef = doc(collection(this.db, p.blocks));
             batch.set(newBlockRef, block);
             batch.update(doc(this.db, p.candidates, cid), { votes: increment(1) });
+
             await batch.commit();
             return { success: true };
         } catch (e) {
