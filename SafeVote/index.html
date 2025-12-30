@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeVote - Secure Student Elections</title>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <div class="container" style="display:flex; justify-content:space-between; align-items:center;">
+            <a href="#" onclick="window.app.showHome(); return false;"
+                style="text-decoration:none; display:flex; align-items:center; gap:0.5rem; color:var(--primary); font-weight:900; font-size:1.5rem;">
+                <div style="background:var(--primary); color:white; padding:0.5rem; border-radius:10px; display:flex;">
+                    <i data-lucide="vote" size="20"></i>
+                </div>
+                <span>SafeVote</span>
+            </a>
+
+            <div id="home-nav" style="display:flex; gap:2rem;">
+                <button onclick="window.app.showHome()"
+                    style="background:none; border:none; font-weight:700; color:var(--text-muted); cursor:pointer;">HOME</button>
+                <button onclick="document.getElementById('about-section').scrollIntoView({behavior:'smooth'})"
+                    style="background:none; border:none; font-weight:700; color:var(--text-muted); cursor:pointer;">ABOUT</button>
+                <button onclick="document.getElementById('features-section').scrollIntoView({behavior:'smooth'})"
+                    style="background:none; border:none; font-weight:700; color:var(--text-muted); cursor:pointer;">FEATURES</button>
+            </div>
+
+            <div id="auth-section" class="hidden" style="display:flex; align-items:center; gap:1.5rem;">
+                <div style="text-align:right">
+                    <div id="nav-username" style="font-weight:800; font-size:0.9rem;">User Name</div>
+                    <div id="nav-role" style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">ID:
+                        123456</div>
+                </div>
+                <button onclick="window.app.logout()"
+                    style="background:#fee2e2; border:none; color:#ef4444; padding:0.5rem 1rem; border-radius:0.75rem; font-weight:700; cursor:pointer;">EXIT</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+
+        <!-- HOME VIEW -->
+        <div id="home-view" class="fade-in">
+            <header class="hero-section">
+                <div class="hero-badge"><i data-lucide="shield-check" size="14"></i> 100% Encrypted & Secure</div>
+                <h1 id="election-title-display" class="hero-title">Student Council Election</h1>
+                <p class="hero-desc">The next generation of student elections. Built on blockchain principles to ensure
+                    your choice is permanent, private, and powerful.</p>
+                <div class="btn-group">
+                    <button onclick="window.app.showView('student-login')" class="btn-primary-custom"
+                        style="padding:1.5rem 3rem">Student Login</button>
+                    <button onclick="window.app.showView('admin-login')" class="btn-primary-custom"
+                        style="padding:1.5rem 3rem; background:white; color:var(--text-main); border:2px solid #e2e8f0;">Admin
+                        Portal</button>
+                </div>
+            </header>
+
+            <!-- About Section -->
+            <section id="about-section" style="padding:4rem 0; border-top:1px solid #e2e8f0;">
+                <div style="text-align:center; margin-bottom:4rem;">
+                    <h2 style="font-size:2.5rem; font-weight:900;">How it Works</h2>
+                    <p style="color:var(--text-muted)">The most transparent election system ever built.</p>
+                </div>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:2rem;">
+                    <div class="card-custom" style="text-align:center">
+                        <div
+                            style="background:rgba(14, 165, 233, 0.1); color:var(--accent); width:60px; height:60px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 1.5rem;">
+                            <i data-lucide="zap" size="30"></i>
+                        </div>
+                        <h3>Instant Counting</h3>
+                        <p style="color:var(--text-muted)">Votes are processed in real-time. No manual errors, no
+                            delays.</p>
+                    </div>
+                    <div class="card-custom" style="text-align:center">
+                        <div
+                            style="background:rgba(37, 99, 235, 0.1); color:var(--primary); width:60px; height:60px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 1.5rem;">
+                            <i data-lucide="lock" size="30"></i>
+                        </div>
+                        <h3>Encrypted Identity</h3>
+                        <p style="color:var(--text-muted)">Your personal ID is never linked directly to your choice in
+                            the ledger.</p>
+                    </div>
+                    <div class="card-custom" style="text-align:center">
+                        <div
+                            style="background:rgba(52, 211, 153, 0.1); color:#10b981; width:60px; height:60px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 1.5rem;">
+                            <i data-lucide="layers" size="30"></i>
+                        </div>
+                        <h3>Blockchain Ledger</h3>
+                        <p style="color:var(--text-muted)">Every vote creates an immutable block. Results can't be
+                            tampered with.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Features Section - SEPARATE BOXES -->
+            <section id="features-section" style="padding:4rem 0; border-top:1px solid #e2e8f0; margin-bottom:4rem;">
+                <div style="text-align:center; margin-bottom:1rem;">
+                    <h2 style="font-size:2.5rem; font-weight:900;">System Features</h2>
+                    <p style="color:var(--text-muted)">Everything you need for a fair election.</p>
+                </div>
+                <div class="feature-grid">
+                    <div class="feature-box">
+                        <div class="feature-icon"><i data-lucide="cloud"></i></div>
+                        <div class="feature-title">Cloud Sync</div>
+                        <p class="feature-desc">All data is synced across nodes instantly for 100% availability.</p>
+                    </div>
+                    <div class="feature-box">
+                        <div class="feature-icon"><i data-lucide="file-text"></i></div>
+                        <div class="feature-title">PDF Export</div>
+                        <p class="feature-desc">Generate detailed election reports and candidate summaries with one
+                            click.</p>
+                    </div>
+                    <div class="feature-box">
+                        <div class="feature-icon"><i data-lucide="search"></i></div>
+                        <div class="feature-title">Live Search</div>
+                        <p class="feature-desc">Instantly filter through dozens of candidates to find your preferred
+                            choice.</p>
+                    </div>
+                    <div class="feature-box">
+                        <div class="feature-icon"><i data-lucide="key"></i></div>
+                        <div class="feature-title">Admin Portal</div>
+                        <p class="feature-desc">Secure dashboard for managing candidates, checking turnout, and
+                            controlling status.</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- STUDENT LOGIN -->
+        <div id="student-login-view" class="hidden fade-in">
+            <div class="auth-container">
+                <div class="card-custom" style="text-align:center; position:relative;">
+                    <button onclick="window.app.showHome()"
+                        style="position:absolute; top:20px; left:20px; background:none; border:none; color:var(--text-muted); cursor:pointer; font-weight:700;"><i
+                            data-lucide="move-left"></i> BACK</button>
+                    <div class="login-img-container"><i data-lucide="user" size="48" color="var(--primary)"></i></div>
+                    <h2 style="font-size:2rem; font-weight:900; margin-bottom:0.5rem">Student Access</h2>
+                    <p style="color:var(--text-muted); margin-bottom:2rem">Enter your unique student ID to vote.</p>
+                    <div class="form-group">
+                        <label class="form-label">Student ID Number</label>
+                        <input type="number" id="student-reg-input" class="form-input" placeholder="e.g. 714023107061">
+                    </div>
+                    <button onclick="window.app.handleStudentLogin()" class="btn-primary-custom"
+                        style="width:100%; padding:1.25rem;">Verify & Enter Portal</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ADMIN LOGIN -->
+        <div id="admin-login-view" class="hidden fade-in">
+            <div class="auth-container">
+                <div class="card-custom" style="text-align:center; position:relative;">
+                    <button onclick="window.app.showHome()"
+                        style="position:absolute; top:20px; left:20px; background:none; border:none; color:var(--text-muted); cursor:pointer; font-weight:700;"><i
+                            data-lucide="move-left"></i> BACK</button>
+                    <div class="login-img-container" style="background:rgba(15, 23, 42, 0.05)"><i
+                            data-lucide="shield-check" size="48" color="#1e293b"></i></div>
+                    <h2 style="font-size:2rem; font-weight:900; margin-bottom:0.5rem">Admin Portal</h2>
+                    <p style="color:var(--text-muted); margin-bottom:2rem">Restricted access for election coordinators
+                        only.</p>
+                    <div class="form-group">
+                        <label class="form-label">Security Access Key</label>
+                        <input type="password" id="admin-key-input" class="form-input" placeholder="••••••••">
+                    </div>
+                    <button onclick="window.app.handleAdminLogin()" class="btn-primary-custom"
+                        style="width:100%; padding:1.25rem; background:#1e293b;">Login as Administrator</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- DASHBOARD VIEW -->
+        <div id="dashboard-view" class="hidden fade-in">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin:2rem 0;">
+                <nav
+                    style="display:flex; background:white; padding:0.5rem; border-radius:1rem; border:1px solid #e2e8f0; gap:0.5rem;">
+                    <button id="tab-vote" onclick="window.app.switchTab('vote')" class="nav-tab active">Vote
+                        Now</button>
+                    <button id="tab-guide" onclick="window.app.switchTab('guide')" class="nav-tab">Election
+                        Guide</button>
+                    <button id="tab-admin" onclick="window.app.switchTab('admin')" class="nav-tab hidden">Control
+                        Portal</button>
+                    <button id="tab-results" onclick="window.app.switchTab('results')" class="nav-tab hidden">Live
+                        Results</button>
+                    <button id="tab-blockchain" onclick="window.app.switchTab('blockchain')" class="nav-tab">Digital
+                        Ledger</button>
+                </nav>
+            </div>
+            <div id="content-area" class="fade-in"></div>
+        </div>
+
+    </main>
+
+    <div id="toast" class="hidden">
+        <div class="toast-icon"><i data-lucide="info" size="20"></i></div>
+        <span id="toast-message" style="font-weight:700; font-size:0.9rem;">Success message</span>
+    </div>
+
+    <!-- Main Logic -->
+    <script type="module" src="js/app.js"></script>
+</body>
+
+</html>
