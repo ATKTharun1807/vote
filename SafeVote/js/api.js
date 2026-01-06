@@ -66,7 +66,7 @@ export class VotingAPI {
         }
 
         try {
-            const configRef = doc(this.db, this.PATHS(appId).config, 'main');
+            const configRef = doc(this.db, this.PATHS().config, 'main');
             // Use dot notation to update ONLY this student's password without affecting others
             await updateDoc(configRef, {
                 [`studentPasswords.${vid}`]: newPass
@@ -76,12 +76,12 @@ export class VotingAPI {
             console.error("Firestore Update Failed, trying fallback:", e);
             try {
                 // If updateDoc failed (likely map doesn't exist), try to set it but ONLY if we can avoid overwriting
-                const snap = await getDoc(doc(this.db, this.PATHS(appId).config, 'main'));
+                const snap = await getDoc(doc(this.db, this.PATHS().config, 'main'));
                 const curData = snap.exists() ? snap.data() : {};
                 const passwords = curData.studentPasswords || {};
                 passwords[vid.toString()] = newPass;
 
-                await setDoc(doc(this.db, this.PATHS(appId).config, 'main'), {
+                await setDoc(doc(this.db, this.PATHS().config, 'main'), {
                     studentPasswords: passwords
                 }, { merge: true });
                 return true;
@@ -98,14 +98,14 @@ export class VotingAPI {
             this.saveToStorage();
             return true;
         }
-        await setDoc(doc(this.db, this.PATHS(appId).config, 'main'), { adminKey: newKey }, { merge: true });
+        await setDoc(doc(this.db, this.PATHS().config, 'main'), { adminKey: newKey }, { merge: true });
         return true;
     }
 
     async initAuth() {
-        // Check if config is still placeholder - strictly look for literal placeholder strings
-        if (firebaseConfig.apiKey.includes("YOUR_API_KEY") || firebaseConfig.apiKey === "placeholder") {
-            console.warn("Using LocalStorage mode: No valid Firebase config found.");
+        // Strictly check if we have a valid key
+        if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "placeholder" || firebaseConfig.apiKey.includes("YOUR_API_KEY")) {
+            console.warn("⚠️ No valid Firebase config. Falling back to LocalStorage.");
             this.useLocalStorage = true;
             this.loadFromStorage();
             return true;
@@ -115,29 +115,30 @@ export class VotingAPI {
             const fbApp = initializeApp(firebaseConfig);
             const auth = getAuth(fbApp);
             const db = getFirestore(fbApp);
+            this.db = db;
 
+            // Authentication is usually required for Firestore rules
             if (initialToken) {
                 await signInWithCustomToken(auth, initialToken);
             } else {
                 await signInAnonymously(auth);
             }
 
-            const p = this.PATHS(appId);
+            console.info(`🚀 Connected to Firebase Project: ${firebaseConfig.projectId}`);
 
-            // Listen for Config
+            const p = this.PATHS();
+
+            // Listen for Config (Real-time Sync)
             onSnapshot(doc(db, p.config, 'main'), (snap) => {
                 if (snap.exists()) {
                     const data = snap.data();
                     this.electionStatus = data.status || 'NOT_STARTED';
                     this.electionName = data.electionName || 'Student Council Election';
                     this.adminKey = data.adminKey || 'admin123';
-
-                    // Directly use cloud data; Firebase handles local latency compensation automatically
                     this.persistentStudentPasswords = data.studentPasswords || {};
-
                     if (window.app) window.app.refreshUI();
                 } else {
-                    // Initialize document if missing
+                    // One-time initialization for new databases
                     setDoc(doc(db, p.config, 'main'), {
                         status: 'NOT_STARTED',
                         adminKey: 'admin123',
@@ -147,41 +148,40 @@ export class VotingAPI {
                 }
             });
 
-            // Listen for Candidates
+            // Sync Candidates
             onSnapshot(collection(db, p.candidates), (snap) => {
                 this.localCandidates = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 if (window.app) window.app.refreshUI();
             });
 
-            // Listen for Blockchain
+            // Sync Blockchain Ledger
             onSnapshot(collection(db, p.blocks), (snap) => {
                 this.localBlockchain = snap.docs.map(d => d.data()).sort((a, b) => a.index - b.index);
                 if (window.app) window.app.refreshUI();
             });
 
-            // Listen for Voters
+            // Sync Voters (Turnout)
             onSnapshot(collection(db, p.voters), (snap) => {
                 this.totalVotersCount = snap.size;
                 this.voterIds = snap.docs.map(d => d.id);
                 if (window.app) window.app.refreshUI();
             });
 
-            this.db = db; // Save for later use
             return true;
         } catch (e) {
-            console.error("Firebase connection failed. Switched to LocalStorage mode.", e);
+            console.error("❌ Firebase Connection Failed!", e);
             this.useLocalStorage = true;
             this.loadFromStorage();
-            return true; // Return true so app continues in local mode
+            return true;
         }
     }
 
-    PATHS(id) {
+    PATHS() {
         return {
-            candidates: `artifacts/${id}/public/data/candidates`,
-            blocks: `artifacts/${id}/public/data/blocks`,
-            voters: `artifacts/${id}/public/data/voters`,
-            config: `artifacts/${id}/public/data/config`
+            candidates: `candidates`,
+            blocks: `blocks`,
+            voters: `voters`,
+            config: `config`
         };
     }
 
@@ -207,7 +207,7 @@ export class VotingAPI {
         }
 
         try {
-            const p = this.PATHS(appId);
+            const p = this.PATHS();
             const batch = writeBatch(this.db);
             batch.set(doc(this.db, p.voters, vid.toString()), { votedAt: serverTimestamp() });
             const newBlockRef = doc(collection(this.db, p.blocks));
@@ -227,7 +227,7 @@ export class VotingAPI {
             this.saveToStorage();
             return;
         }
-        await setDoc(doc(this.db, this.PATHS(appId).config, 'main'), { status: s }, { merge: true });
+        await setDoc(doc(this.db, this.PATHS().config, 'main'), { status: s }, { merge: true });
     }
 
     async updateElectionName(name) {
@@ -236,7 +236,7 @@ export class VotingAPI {
             this.saveToStorage();
             return;
         }
-        await setDoc(doc(this.db, this.PATHS(appId).config, 'main'), { electionName: name }, { merge: true });
+        await setDoc(doc(this.db, this.PATHS().config, 'main'), { electionName: name }, { merge: true });
     }
 
     async addCandidate(name, party) {
@@ -255,7 +255,7 @@ export class VotingAPI {
         }
 
         try {
-            await addDoc(collection(this.db, this.PATHS(appId).candidates), {
+            await addDoc(collection(this.db, this.PATHS().candidates), {
                 ...newCand,
                 addedAt: serverTimestamp()
             });
@@ -272,7 +272,7 @@ export class VotingAPI {
             this.saveToStorage();
             return;
         }
-        await deleteDoc(doc(this.db, this.PATHS(appId).candidates, id));
+        await deleteDoc(doc(this.db, this.PATHS().candidates, id));
     }
 
     async resetElection() {
@@ -286,7 +286,7 @@ export class VotingAPI {
         }
 
         try {
-            const p = this.PATHS(appId);
+            const p = this.PATHS();
             const cSnaps = await getDocs(collection(this.db, p.candidates));
             const batch = writeBatch(this.db);
             cSnaps.forEach(d => batch.update(d.ref, { votes: 0 }));

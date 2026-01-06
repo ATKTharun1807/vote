@@ -173,12 +173,13 @@
                     <div class="form-group">
                         <label class="form-label">Student ID Number</label>
                         <input type="text" id="student-reg-input" class="form-input" placeholder="e.g. 714023107061"
-                            inputmode="numeric">
+                            inputmode="numeric" onkeyup="if(event.key==='Enter') window.app.handleStudentLogin()">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Password</label>
                         <div style="position: relative;">
-                            <input type="password" id="student-pass-input" class="form-input" placeholder="••••••••">
+                            <input type="password" id="student-pass-input" class="form-input" placeholder="••••••••"
+                                onkeyup="if(event.key==='Enter') window.app.handleStudentLogin()">
                             <i data-lucide="eye" id="toggle-pass-icon" onclick="window.app.togglePasswordVisibility()"
                                 style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; width: 18px; height: 18px;"></i>
                         </div>
@@ -205,7 +206,8 @@
                         only.</p>
                     <div class="form-group">
                         <label class="form-label">Security Access Key</label>
-                        <input type="password" id="admin-key-input" class="form-input" placeholder="••••••••">
+                        <input type="password" id="admin-key-input" class="form-input" placeholder="••••••••"
+                            onkeyup="if(event.key==='Enter') window.app.handleAdminLogin()">
                     </div>
                     <button onclick="window.app.handleAdminLogin()" class="btn-primary-custom"
                         style="width:100%; padding:1.25rem; background:#1e293b;">Login as Administrator</button>
