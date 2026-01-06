@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SafeVote - Secure Student Elections</title>
+    <link rel="icon" href="https://www.shutterstock.com/image-vector/vote-hand-india-election-260nw-1338684383.jpg">
 
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -15,6 +16,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 
     <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="assets/logo.png">
 </head>
 
 <body>
@@ -23,19 +25,35 @@
         <div class="container" style="display:flex; justify-content:space-between; align-items:center;">
             <a href="#" onclick="window.app.showHome(); return false;"
                 style="text-decoration:none; display:flex; align-items:center; gap:0.5rem; color:var(--primary); font-weight:900; font-size:1.5rem;">
-                <div style="background:var(--primary); color:white; padding:0.5rem; border-radius:10px; display:flex;">
-                    <i data-lucide="vote" size="20"></i>
+                <div
+                    style="background:var(--card-bg); width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; overflow:hidden; border:1px solid var(--card-border);">
+                    <img src="https://www.shutterstock.com/image-vector/vote-hand-india-election-260nw-1338684383.jpg"
+                        alt="SafeVote" style="width:100%; height:100%; object-fit:cover;">
                 </div>
-                <span>SafeVote</span>
+                <span>VOTE CHAIN</span>
             </a>
 
-            <div id="home-nav" style="display:flex; gap:2rem;">
+            <div id="home-nav" style="display:flex; gap:1.5rem; align-items:center;">
                 <button onclick="window.app.showHome()"
                     style="background:none; border:none; font-weight:700; color:var(--text-muted); cursor:pointer;">HOME</button>
                 <button onclick="document.getElementById('about-section').scrollIntoView({behavior:'smooth'})"
                     style="background:none; border:none; font-weight:700; color:var(--text-muted); cursor:pointer;">ABOUT</button>
                 <button onclick="document.getElementById('features-section').scrollIntoView({behavior:'smooth'})"
                     style="background:none; border:none; font-weight:700; color:var(--text-muted); cursor:pointer;">FEATURES</button>
+
+                <div class="theme-switcher-premium">
+                    <button onclick="window.app.setTheme('light')" title="Light Mode" class="theme-btn"
+                        data-mode="light">
+                        <i data-lucide="sun" size="16"></i>
+                    </button>
+                    <button onclick="window.app.setTheme('dark')" title="Dark Mode" class="theme-btn" data-mode="dark">
+                        <i data-lucide="moon" size="16"></i>
+                    </button>
+                    <button onclick="window.app.setTheme('eye-protection')" title="Eye Protection" class="theme-btn"
+                        data-mode="eye-protection">
+                        <i data-lucide="eye" size="16"></i>
+                    </button>
+                </div>
             </div>
 
             <div id="auth-section" class="hidden" style="display:flex; align-items:center; gap:1.5rem;">
@@ -55,7 +73,7 @@
         <!-- HOME VIEW -->
         <div id="home-view" class="fade-in">
             <header class="hero-section">
-                <div class="hero-badge"><i data-lucide="shield-check" size="14"></i> 100% Encrypted & Secure</div>
+                <div class="hero-badge"><i data-lucide="shield-check" size="14"></i> Encrypted & Secure</div>
                 <h1 id="election-title-display" class="hero-title">Student Council Election</h1>
                 <p class="hero-desc">The next generation of student elections. Built on blockchain principles to ensure
                     your choice is permanent, private, and powerful.</p>
@@ -63,7 +81,7 @@
                     <button onclick="window.app.showView('student-login')" class="btn-primary-custom"
                         style="padding:1.5rem 3rem">Student Login</button>
                     <button onclick="window.app.showView('admin-login')" class="btn-primary-custom"
-                        style="padding:1.5rem 3rem; background:white; color:var(--text-main); border:2px solid #e2e8f0;">Admin
+                        style="padding:1.5rem 3rem; background:var(--card-bg); color:var(--text-main); border:2px solid var(--card-border);">Admin
                         Portal</button>
                 </div>
             </header>
@@ -146,7 +164,10 @@
                     <button onclick="window.app.showHome()"
                         style="position:absolute; top:20px; left:20px; background:none; border:none; color:var(--text-muted); cursor:pointer; font-weight:700;"><i
                             data-lucide="move-left"></i> BACK</button>
-                    <div class="login-img-container"><i data-lucide="user" size="48" color="var(--primary)"></i></div>
+                    <div class="login-img-container">
+                        <img src="https://www.shutterstock.com/image-vector/vote-hand-india-election-260nw-1338684383.jpg"
+                            alt="Student Login" style="width:100%; height:100%; object-fit:cover;">
+                    </div>
                     <h2 style="font-size:2rem; font-weight:900; margin-bottom:0.5rem">Student Access</h2>
                     <p style="color:var(--text-muted); margin-bottom:2rem">Enter your unique student ID to vote.</p>
                     <div class="form-group">
@@ -175,8 +196,10 @@
                     <button onclick="window.app.showHome()"
                         style="position:absolute; top:20px; left:20px; background:none; border:none; color:var(--text-muted); cursor:pointer; font-weight:700;"><i
                             data-lucide="move-left"></i> BACK</button>
-                    <div class="login-img-container" style="background:rgba(15, 23, 42, 0.05)"><i
-                            data-lucide="shield-check" size="48" color="#1e293b"></i></div>
+                    <div class="login-img-container">
+                        <img src="https://www.shutterstock.com/image-vector/vote-hand-india-election-260nw-1338684383.jpg"
+                            alt="Admin Portal" style="width:100%; height:100%; object-fit:cover;">
+                    </div>
                     <h2 style="font-size:2rem; font-weight:900; margin-bottom:0.5rem">Admin Portal</h2>
                     <p style="color:var(--text-muted); margin-bottom:2rem">Restricted access for election coordinators
                         only.</p>

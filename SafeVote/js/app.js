@@ -7,6 +7,7 @@ export class App {
         this.role = null;
         this.activeTab = 'vote';
         this.searchQuery = "";
+        this.theme = localStorage.getItem('safevote-theme') || 'light';
     }
 
     async init() {
@@ -15,6 +16,7 @@ export class App {
         if (!success) {
             this.showToast("Database connection failed. Check config.", "error");
         }
+        this.setTheme(this.theme);
         this.showHome();
     }
 
@@ -102,6 +104,17 @@ export class App {
         this.showHome();
     }
 
+    setTheme(theme) {
+        this.theme = theme;
+        document.body.setAttribute('data-theme', theme);
+        localStorage.setItem('safevote-theme', theme);
+
+        // Update selection UI
+        document.querySelectorAll('.theme-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-mode') === theme);
+        });
+    }
+
     switchTab(tabId) {
         if (tabId === 'results' && this.role !== 'admin' && api.electionStatus !== 'ENDED') {
             return this.showToast("Results available after election ends", "error");
@@ -162,16 +175,16 @@ export class App {
         const hasVoted = api.voterIds.includes(this.currentUser.regNo.toString());
 
         let html = `
-            <div class="card-custom bg-light mb-4" style="border:none; background:#f1f5f9; padding:1.5rem">
+            <div class="card-custom bg-light mb-4" style="border:none; background:var(--bg-main); padding:1.5rem">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start">
                     <div>
                         <h2 style="margin:0; color:var(--primary)">${api.electionName}</h2>
-                        <h4 style="margin:0.5rem 0 0">Welcome, ${this.currentUser.name}</h4>
-                        <p style="margin:0.5rem 0 0; font-size:0.8rem; color:#64748b">Status: <span style="color:var(--primary); font-weight:800">${api.electionStatus}</span></p>
+                        <h4 style="margin:0.5rem 0 0; color:var(--text-main)">Welcome, ${this.currentUser.name}</h4>
+                        <p style="margin:0.5rem 0 0; font-size:0.8rem; color:var(--text-muted)">Status: <span style="color:var(--primary); font-weight:800">${api.electionStatus}</span></p>
                     </div>
                     <div style="text-align:right">
-                         <div style="font-size:0.75rem; font-weight:700; color:#64748b">ID: ${this.currentUser.regNo}</div>
-                         <button onclick="window.app.handleResetPassword()" class="btn-primary-custom" style="margin-top:0.75rem; padding:0.4rem 0.8rem; font-size:0.7rem; background:#64748b">RESET PASSWORD</button>
+                         <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted)">ID: ${this.currentUser.regNo}</div>
+                         <button onclick="window.app.handleResetPassword()" class="btn-primary-custom" style="margin-top:0.75rem; padding:0.4rem 0.8rem; font-size:0.7rem; background:var(--text-muted)">RESET PASSWORD</button>
                     </div>
                 </div>
             </div>
@@ -210,8 +223,8 @@ export class App {
             const disabled = isEnded;
             html += `
                 <div class="card-custom" style="text-align:center">
-                    <h3 style="margin:0">${c.name}</h3>
-                    <p style="color:#64748b; font-size:0.9rem">${c.party}</p>
+                    <h3 style="margin:0; color:var(--text-main)">${c.name}</h3>
+                    <p style="color:var(--text-muted); font-size:0.9rem">${c.party}</p>
                     <button onclick="window.app.castVote('${c.id}', this)" ${disabled ? 'disabled' : ''} class="btn-primary-custom" style="width:100%; margin-top:1rem; ${hasVoted ? 'opacity:0.7' : ''}">
                         ${hasVoted ? 'VOTED' : (isEnded ? 'ENDED' : 'VOTE')}
                     </button>
@@ -260,12 +273,12 @@ export class App {
                     <p style="font-size:0.8rem; color:#15803d; margin-bottom:1rem">Generate PDF report with results.</p>
                     <button onclick="window.app.handleDownloadPDF()" class="btn-primary-custom" style="background:#16a34a; width:100%">GENERATE PDF</button>
                 </div>
-                <div class="feature-box" style="border-color: #f1f5f9; background: #f8fafc;">
-                    <div class="feature-title" style="color: #475569;">System Security</div>
-                    <p style="font-size:0.8rem; color:#64748b; margin-bottom:1rem">Change Admin Security Key</p>
+                <div class="feature-box" style="border-color: var(--card-border); background: var(--bg-main);">
+                    <div class="feature-title" style="color: var(--primary);">System Security</div>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem">Change Admin Security Key</p>
                     <div style="display:flex; gap:0.5rem">
                          <input id="new-admin-key" type="password" class="form-input" placeholder="New Key" style="font-size:0.8rem">
-                         <button onclick="window.app.handleUpdateAdminKey()" class="btn-primary-custom" style="padding:0.5rem 1rem; background:#475569">UPDATE</button>
+                         <button onclick="window.app.handleUpdateAdminKey()" class="btn-primary-custom" style="padding:0.5rem 1rem; background:var(--text-muted)">UPDATE</button>
                     </div>
                 </div>
             </div>
@@ -463,9 +476,9 @@ export class App {
             `;
         } else {
             html += `
-                <div class="card-custom mb-5" style="background:#f1f5f9; border:none; text-align:center">
-                    <h3 style="margin:0; color:#475569">Status: ${api.electionStatus}</h3>
-                    <p style="margin:0.5rem 0 0; color:#64748b; font-size:0.9rem">Real-time counts will be finalized when poll closes.</p>
+                <div class="card-custom mb-5" style="background:var(--bg-main); border:none; text-align:center">
+                    <h3 style="margin:0; color:var(--text-main)">Status: ${api.electionStatus}</h3>
+                    <p style="margin:0.5rem 0 0; color:var(--text-muted); font-size:0.9rem">Real-time counts will be finalized when poll closes.</p>
                 </div>
             `;
         }
@@ -476,7 +489,7 @@ export class App {
             html += `
                 <div class="card-custom" style="display:flex; justify-content:space-between; align-items:center; ${isWinner ? 'border:2px solid #10b981; background:#f0fdf4' : ''}">
                     <div style="display:flex; align-items:center; gap:1.5rem">
-                        <div style="width:40px; height:40px; border-radius:50%; background:${isWinner ? '#10b981' : '#e2e8f0'}; color:${isWinner ? 'white' : '#64748b'}; display:flex; align-items:center; justify-content:center; font-weight:900">
+                        <div style="width:40px; height:40px; border-radius:50%; background:${isWinner ? '#10b981' : 'var(--card-border)'}; color:${isWinner ? 'white' : 'var(--text-muted)'}; display:flex; align-items:center; justify-content:center; font-weight:900">
                             ${index + 1}
                         </div>
                         <div>
@@ -496,13 +509,13 @@ export class App {
     }
 
     renderBlockchainTab(container) {
-        let html = `<h2>Digital Ledger (Blockchain)</h2><p style="color:#64748b">${api.electionName} Immutable Logs</p><div style="border-left:4px solid var(--primary); padding-left:2rem; margin-top:2rem">`;
+        let html = `<h2>Digital Ledger (Blockchain)</h2><p style="color:var(--text-muted)">${api.electionName} Immutable Logs</p><div style="border-left:4px solid var(--primary); padding-left:2rem; margin-top:2rem">`;
         api.localBlockchain.forEach(b => {
             html += `
                 <div class="card-custom mb-3" style="padding:1.5rem">
-                    <div style="font-size:0.7rem; color:#64748b">${new Date(b.timestamp).toLocaleString()}</div>
-                    <div style="font-family:monospace; margin-top:0.5rem; word-break:break-all">Hash: ${b.hash}</div>
-                    <div style="font-size:0.8rem; margin-top:0.5rem">Previous: ${b.previousHash}</div>
+                    <div style="font-size:0.7rem; color:var(--text-muted)">${new Date(b.timestamp).toLocaleString()}</div>
+                    <div style="font-family:monospace; margin-top:0.5rem; word-break:break-all; color:var(--text-main)">Hash: ${b.hash}</div>
+                    <div style="font-size:0.8rem; margin-top:0.5rem; color:var(--text-muted)">Previous: ${b.previousHash}</div>
                 </div>
             `;
         });
