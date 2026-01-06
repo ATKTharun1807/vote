@@ -103,9 +103,8 @@ export class VotingAPI {
     }
 
     async initAuth() {
-        // Strictly check if we have a valid key
         if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "placeholder" || firebaseConfig.apiKey.includes("YOUR_API_KEY")) {
-            console.warn("⚠️ No valid Firebase config. Falling back to LocalStorage.");
+            console.warn("⚠️ LocalStorage Mode: No Firebase config.");
             this.useLocalStorage = true;
             this.loadFromStorage();
             return true;
@@ -116,19 +115,19 @@ export class VotingAPI {
             const auth = getAuth(fbApp);
             const db = getFirestore(fbApp);
             this.db = db;
+            this.isLive = false;
 
-            // Authentication is usually required for Firestore rules
-            if (initialToken) {
-                await signInWithCustomToken(auth, initialToken);
-            } else {
-                await signInAnonymously(auth);
+            // Must authenticate to write to Firestore in most configurations
+            try {
+                if (initialToken) await signInWithCustomToken(auth, initialToken);
+                else await signInAnonymously(auth);
+            } catch (authErr) {
+                console.warn("Auth failed, proceeding anyway:", authErr);
             }
-
-            console.info(`🚀 Connected to Firebase Project: ${firebaseConfig.projectId}`);
 
             const p = this.PATHS();
 
-            // Listen for Config (Real-time Sync)
+            // Real-time Dashboard Sync (Election Control)
             onSnapshot(doc(db, p.config, 'main'), (snap) => {
                 if (snap.exists()) {
                     const data = snap.data();
@@ -136,37 +135,33 @@ export class VotingAPI {
                     this.electionName = data.electionName || 'Student Council Election';
                     this.adminKey = data.adminKey || 'admin123';
                     this.persistentStudentPasswords = data.studentPasswords || {};
+                    this.isLive = true;
                     if (window.app) window.app.refreshUI();
                 } else {
-                    // One-time initialization for new databases
-                    setDoc(doc(db, p.config, 'main'), {
-                        status: 'NOT_STARTED',
-                        adminKey: 'admin123',
-                        electionName: 'Student Council Election',
-                        studentPasswords: {}
-                    });
+                    setDoc(doc(db, p.config, 'main'), { status: 'NOT_STARTED', adminKey: 'admin123', electionName: 'Student Council Election', studentPasswords: {} });
                 }
-            });
+            }, (err) => console.error("Config Sync Error:", err));
 
-            // Sync Candidates
+            // Real-time Candidate Sync
             onSnapshot(collection(db, p.candidates), (snap) => {
                 this.localCandidates = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 if (window.app) window.app.refreshUI();
             });
 
-            // Sync Blockchain Ledger
+            // Real-time Blockchain Sync
             onSnapshot(collection(db, p.blocks), (snap) => {
                 this.localBlockchain = snap.docs.map(d => d.data()).sort((a, b) => a.index - b.index);
                 if (window.app) window.app.refreshUI();
             });
 
-            // Sync Voters (Turnout)
+            // Real-time Turnout Sync
             onSnapshot(collection(db, p.voters), (snap) => {
                 this.totalVotersCount = snap.size;
                 this.voterIds = snap.docs.map(d => d.id);
                 if (window.app) window.app.refreshUI();
             });
 
+            console.info(`🔥 Real-time Firebase Active: ${firebaseConfig.projectId}`);
             return true;
         } catch (e) {
             console.error("❌ Firebase Connection Failed!", e);

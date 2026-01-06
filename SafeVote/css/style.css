@@ -80,6 +80,14 @@ p {
     max-width: 1200px;
     margin: 0 auto;
     padding: 0 1.5rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+    .container {
+        padding: 0 1rem;
+    }
 }
 
 .card-custom {
@@ -141,6 +149,25 @@ p {
     background: var(--primary) !important;
     color: white !important;
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.dashboard-nav {
+    display: flex;
+    background: var(--card-bg);
+    padding: 0.5rem;
+    border-radius: 1rem;
+    border: 1px solid var(--card-border);
+    gap: 0.5rem;
+    width: fit-content;
+}
+
+@media (max-width: 768px) {
+    .dashboard-nav {
+        width: 100%;
+        overflow-x: auto;
+        justify-content: flex-start;
+        padding: 0.25rem;
+    }
 }
 
 .nav-tab.active-guide {
@@ -262,6 +289,43 @@ p {
 .feature-desc {
     color: var(--text-muted);
     font-size: 0.95rem;
+}
+
+/* Layout Utilities */
+.grid-responsive {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.flex-between {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+@media (max-width: 640px) {
+    .flex-between {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .flex-between.mobile-center {
+        align-items: center;
+        text-align: center;
+    }
+
+    .grid-form {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+.grid-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 1rem;
+    align-items: end;
 }
 
 .hero-section {
@@ -404,14 +468,146 @@ p {
     display: none !important;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
+/* Responsive Adjustments */
+@media (max-width: 1024px) {
     .hero-title {
-        font-size: 2.5rem;
+        font-size: 3.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .navbar .container {
+        flex-wrap: wrap;
+    }
+
+    .hero-section {
+        padding: 4rem 0;
+    }
+
+    .hero-title {
+        font-size: 2.75rem;
+    }
+
+    .hero-desc {
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
     }
 
     .btn-group {
         flex-direction: column;
+        gap: 1rem;
+    }
+
+    .btn-group button {
+        width: 100%;
+        padding: 1.25rem 2rem !important;
+    }
+
+    .nav-tab {
+        padding: 0.5rem 1rem;
+        font-size: 0.75rem;
+    }
+
+    /* Stack grid items on mobile */
+    .feature-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .add-candidate-section div[style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .hero-title {
+        font-size: 2.25rem;
+    }
+
+    .card-custom {
+        padding: 1.5rem;
+        border-radius: 1rem;
+    }
+
+    .navbar {
+        padding: 0.75rem 0;
+    }
+
+    #home-nav {
+        gap: 1rem !important;
+    }
+
+    .theme-switcher-premium {
+        display: none;
+        /* Hide on very small screens or move to menu */
+    }
+
+    /* Dashboard adjustments */
+    #dashboard-view nav {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 0.25rem;
+        margin-bottom: 1rem;
+        width: 100%;
+        justify-content: flex-start !important;
+    }
+
+    .nav-tab {
+        white-space: nowrap;
+    }
+
+    .admin-table th,
+    .admin-table td {
+        padding: 0.75rem 0.5rem;
+        font-size: 0.7rem;
+    }
+}
+
+/* Mobile Menu Specifics */
+.mobile-toggle {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--text-main);
+    cursor: pointer;
+    padding: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .mobile-toggle {
+        display: block;
+    }
+
+    #home-nav.mobile-hidden {
+        display: none !important;
+    }
+
+    #home-nav.mobile-show {
+        display: flex !important;
+        flex-direction: column;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--card-bg);
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--card-border);
+        box-shadow: var(--shadow-lg);
+        z-index: 100;
+        gap: 1rem !important;
+        align-items: stretch !important;
+    }
+
+    #home-nav.mobile-show .theme-switcher-premium {
+        display: flex;
+        justify-content: center;
+        margin-top: 1rem;
+    }
+
+    #home-nav.mobile-show button {
+        text-align: left;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--card-border);
     }
 }
 

@@ -8,6 +8,7 @@ export class App {
         this.activeTab = 'vote';
         this.searchQuery = "";
         this.theme = localStorage.getItem('safevote-theme') || 'light';
+        this.isMenuOpen = false;
     }
 
     async init() {
@@ -47,6 +48,27 @@ export class App {
 
     showView(id) {
         this.toggleView(id + '-view');
+    }
+
+    toggleMobileMenu(forcedState) {
+        const nav = document.getElementById('home-nav');
+        if (!nav) return;
+
+        this.isMenuOpen = (forcedState !== undefined) ? forcedState : !this.isMenuOpen;
+
+        if (this.isMenuOpen) {
+            nav.classList.remove('mobile-hidden');
+            nav.classList.add('mobile-show');
+        } else {
+            nav.classList.add('mobile-hidden');
+            nav.classList.remove('mobile-show');
+        }
+
+        const icon = document.querySelector('.mobile-toggle i');
+        if (icon && window.lucide) {
+            icon.setAttribute('data-lucide', this.isMenuOpen ? 'x' : 'menu');
+            window.lucide.createIcons();
+        }
     }
 
     handleStudentLogin() {
@@ -139,6 +161,9 @@ export class App {
     }
 
     refreshUI() {
+        const badge = document.getElementById('sync-badge');
+        if (badge) badge.classList.toggle('hidden', !api.isLive);
+
         if (this.role) this.renderContent();
 
         // Update Election Name on Home screen if active
@@ -176,7 +201,7 @@ export class App {
 
         let html = `
             <div class="card-custom bg-light mb-4" style="border:none; background:var(--bg-main); padding:1.5rem">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start">
+                <div class="flex-between">
                     <div>
                         <h2 style="margin:0; color:var(--primary)">${api.electionName}</h2>
                         <h4 style="margin:0.5rem 0 0; color:var(--text-main)">Welcome, ${this.currentUser.name}</h4>
@@ -211,9 +236,9 @@ export class App {
 
         html += `
             <div class="mb-4">
-                <input type="text" oninput="window.app.searchQuery=this.value;window.app.renderContent()" placeholder="Search candidates..." class="form-input" style="max-width:400px" value="${this.searchQuery}">
+                <input type="text" oninput="window.app.searchQuery=this.value;window.app.renderContent()" placeholder="Search candidates..." class="form-input" style="max-width:400px; width:100%" value="${this.searchQuery}">
             </div>
-            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap:1.5rem">
+            <div class="grid-responsive">
         `;
 
         const filtered = api.localCandidates.filter(c => c.name.toLowerCase().includes(this.searchQuery.toLowerCase()));
@@ -326,7 +351,7 @@ export class App {
                     <h3 style="margin:0">Add New Candidate</h3>
                     <p style="margin:0; font-size:0.85rem; color:var(--text-muted)">Add participants to the election ballot.</p>
                 </div>
-                <div style="display:grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: end;">
+                <div class="grid-form">
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Full Name</label>
                         <input id="cn" class="form-input" placeholder="e.g. John Doe" autocomplete="off">
@@ -335,7 +360,7 @@ export class App {
                         <label class="form-label">Group / Party</label>
                         <input id="cp" class="form-input" placeholder="e.g. Independent" autocomplete="off">
                     </div>
-                    <button id="save-btn" onclick="window.app.handleAdd()" class="btn-primary-custom" style="padding: 1rem 2rem;">ADD TO LIST</button>
+                    <button id="save-btn" onclick="window.app.handleAdd()" class="btn-primary-custom" style="padding: 1rem 2rem; width:100%">ADD TO LIST</button>
                 </div>
             </div>
             

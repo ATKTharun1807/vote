@@ -22,7 +22,7 @@
 <body>
 
     <nav class="navbar">
-        <div class="container" style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="container flex-between">
             <a href="#" onclick="window.app.showHome(); return false;"
                 style="text-decoration:none; display:flex; align-items:center; gap:0.5rem; color:var(--primary); font-weight:900; font-size:1.5rem;">
                 <div
@@ -33,12 +33,21 @@
                 <span>VOTE CHAIN</span>
             </a>
 
-            <div id="home-nav" style="display:flex; gap:1.5rem; align-items:center;">
-                <button onclick="window.app.showHome()"
+            <div id="home-nav" class="mobile-hidden" style="display:flex; gap:1.5rem; align-items:center;">
+                <div id="sync-badge" class="hidden"
+                    style="display:flex; align-items:center; gap:0.4rem; background:rgba(34,197,94,0.1); color:#16a34a; padding:0.25rem 0.6rem; border-radius:99px; font-size:0.65rem; font-weight:800; border:1px solid rgba(34,197,94,0.2);">
+                    <div
+                        style="width:6px; height:6px; background:#22c55e; border-radius:50%; animation: pulse 2s infinite;">
+                    </div>
+                    LIVE SYNC
+                </div>
+                <button onclick="window.app.showHome(); window.app.toggleMobileMenu(false);"
                     style="background:none; border:none; font-weight:700; color:var(--text-muted); cursor:pointer;">HOME</button>
-                <button onclick="document.getElementById('about-section').scrollIntoView({behavior:'smooth'})"
+                <button
+                    onclick="document.getElementById('about-section').scrollIntoView({behavior:'smooth'}); window.app.toggleMobileMenu(false);"
                     style="background:none; border:none; font-weight:700; color:var(--text-muted); cursor:pointer;">ABOUT</button>
-                <button onclick="document.getElementById('features-section').scrollIntoView({behavior:'smooth'})"
+                <button
+                    onclick="document.getElementById('features-section').scrollIntoView({behavior:'smooth'}); window.app.toggleMobileMenu(false);"
                     style="background:none; border:none; font-weight:700; color:var(--text-muted); cursor:pointer;">FEATURES</button>
 
                 <div class="theme-switcher-premium">
@@ -56,7 +65,11 @@
                 </div>
             </div>
 
-            <div id="auth-section" class="hidden" style="display:flex; align-items:center; gap:1.5rem;">
+            <button class="mobile-toggle" onclick="window.app.toggleMobileMenu()">
+                <i data-lucide="menu"></i>
+            </button>
+
+            <div id="auth-section" class="hidden flex-between" style="gap:1.5rem;">
                 <div style="text-align:right">
                     <div id="nav-username" style="font-weight:800; font-size:0.9rem;">User Name</div>
                     <div id="nav-role" style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">ID:
@@ -217,9 +230,8 @@
 
         <!-- DASHBOARD VIEW -->
         <div id="dashboard-view" class="hidden fade-in">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin:2rem 0;">
-                <nav
-                    style="display:flex; background:white; padding:0.5rem; border-radius:1rem; border:1px solid #e2e8f0; gap:0.5rem;">
+            <div style="margin:2rem 0;">
+                <nav class="dashboard-nav">
                     <button id="tab-vote" onclick="window.app.switchTab('vote')" class="nav-tab active">Vote
                         Now</button>
                     <button id="tab-guide" onclick="window.app.switchTab('guide')" class="nav-tab">Election
