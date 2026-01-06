@@ -353,21 +353,79 @@ export class App {
         });
     }
 
-    handleResetPassword() {
-        const current = prompt("Confirm current password:");
-        if (!current) return;
+    async handleResetPassword() {
+        const overlay = document.getElementById('modal-overlay');
+        const body = document.getElementById('modal-body');
+        const okBtn = document.getElementById('modal-ok');
+        const cancelBtn = document.getElementById('modal-cancel');
+        const title = document.getElementById('modal-title');
 
-        if (!api.verifyStudent(this.currentUser.regNo, current)) {
-            return this.showToast("Incorrect current password", "error");
-        }
+        title.textContent = "Security: Change Password";
+        body.innerHTML = `
+            <div class="form-group">
+                <label class="form-label">Current Password</label>
+                <input type="password" id="modal-pass-current" class="form-input" placeholder="Enter current password">
+            </div>
+            <div class="form-group">
+                <label class="form-label">New Password (Min 4 chars)</label>
+                <input type="password" id="modal-pass-new" class="form-input" placeholder="Enter new password">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Confirm New Password</label>
+                <input type="password" id="modal-pass-confirm" class="form-input" placeholder="Re-enter new password">
+            </div>
+        `;
 
-        const newPass = prompt("Enter new password:");
-        if (newPass && newPass.length >= 4) {
-            api.updateStudentPassword(this.currentUser.regNo, newPass);
-            this.showToast("Password updated successfully!");
-        } else if (newPass) {
-            this.showToast("Password too short (min 4 chars)", "error");
-        }
+        overlay.classList.remove('hidden');
+
+        return new Promise((resolve) => {
+            const cleanup = () => {
+                overlay.classList.add('hidden');
+                okBtn.onclick = null;
+                cancelBtn.onclick = null;
+            };
+
+            cancelBtn.onclick = () => {
+                cleanup();
+                resolve(false);
+            };
+
+            okBtn.onclick = async () => {
+                const current = document.getElementById('modal-pass-current').value;
+                const newP = document.getElementById('modal-pass-new').value;
+                const confirmP = document.getElementById('modal-pass-confirm').value;
+
+                if (!api.verifyStudent(this.currentUser.regNo, current)) {
+                    this.showToast("Current password incorrect", "error");
+                    return;
+                }
+
+                if (newP.length < 4) {
+                    this.showToast("New password too short", "error");
+                    return;
+                }
+
+                if (newP !== confirmP) {
+                    this.showToast("Passwords do not match", "error");
+                    return;
+                }
+
+                okBtn.disabled = true;
+                okBtn.textContent = "Updating...";
+
+                const success = await api.updateStudentPassword(this.currentUser.regNo, newP);
+                cleanup();
+                if (success) {
+                    this.showToast("Password updated successfully!", "success");
+                    resolve(true);
+                } else {
+                    this.showToast("Update failed. Try again.", "error");
+                    resolve(false);
+                }
+                okBtn.disabled = false;
+                okBtn.textContent = "Confirm";
+            };
+        });
     }
 
     togglePasswordVisibility() {
@@ -454,18 +512,28 @@ export class App {
 
     async castVote(cid, btn) {
         if (api.voterIds.includes(this.currentUser.regNo.toString())) {
-            return this.showToast("ur alrady vote", "error");
+            return this.showToast("You have already voted!", "error");
         }
 
-        btn.textContent = "Processing...";
+        // Add a visual "locking" state to prevent double clicks
+        const originalText = btn.textContent;
+        btn.textContent = "Verifying...";
         btn.disabled = true;
-        const res = await api.castVote(this.currentUser.regNo, cid);
-        if (res.success) {
-            this.showToast("voted successfully");
-            this.renderContent();
-        } else {
-            this.showToast(res.msg, "error");
-            btn.textContent = "VOTE";
+
+        try {
+            const res = await api.castVote(this.currentUser.regNo, cid);
+            if (res.success) {
+                this.showToast("Your vote has been recorded!", "success");
+                this.renderContent();
+            } else {
+                this.showToast(res.msg || "Transaction failed", "error");
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        } catch (error) {
+            console.error(error);
+            this.showToast("Network error. Please try again.", "error");
+            btn.textContent = originalText;
             btn.disabled = false;
         }
     }

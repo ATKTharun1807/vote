@@ -11,12 +11,12 @@ const getGlobal = (name, fallback = null) => {
 
 // Fallback / Example Config
 const DEFAULT_FIREBASE_CONFIG = {
-    apiKey: "AIzaSy...", // Replace with your key
-    authDomain: "your-project.firebaseapp.com",
-    projectId: "your-project-id",
-    storageBucket: "your-project.appspot.com",
-    messagingSenderId: "123456789",
-    appId: "1:123456789:web:abcdef"
+    apiKey: "AIzaSyDJLLmO_ww1izEMkBItiJhSN-IErRKveGM",
+    authDomain: "votechain-3aeb9.firebaseapp.com",
+    projectId: "votechain-3aeb9",
+    storageBucket: "votechain-3aeb9.firebasestorage.app",
+    messagingSenderId: "926380124576",
+    appId: "1:926380124576:web:28c76a70b8cc74c41d5cc5"
 };
 
 const rawConfig = getGlobal('__firebase_config');

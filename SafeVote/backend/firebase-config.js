@@ -8,13 +8,15 @@ const getGlobal = (name, fallback = null) => {
 
 // Default configuration placeholder
 const DEFAULT_CONFIG = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyDJLLmO_ww1izEMkBItiJhSN-IErRKveGM",
+    authDomain: "votechain-3aeb9.firebaseapp.com",
+    projectId: "votechain-3aeb9",
+    storageBucket: "votechain-3aeb9.firebasestorage.app",
+    messagingSenderId: "926380124576",
+    appId: "1:926380124576:web:28c76a70b8cc74c41d5cc5"
 };
+
+
 
 const rawConfig = getGlobal('__firebase_config');
 export const firebaseConfig = rawConfig ? (typeof rawConfig === 'string' ? JSON.parse(rawConfig) : rawConfig) : DEFAULT_CONFIG;

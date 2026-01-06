@@ -157,7 +157,7 @@
                     <div class="form-group">
                         <label class="form-label">Password</label>
                         <div style="position: relative;">
-                            <input type="password" id="student-pass-input" class="form-input" value="atkboss">
+                            <input type="password" id="student-pass-input" class="form-input" placeholder="••••••••">
                             <i data-lucide="eye" id="toggle-pass-icon" onclick="window.app.togglePasswordVisibility()"
                                 style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; width: 18px; height: 18px;"></i>
                         </div>
@@ -215,6 +215,19 @@
     <div id="toast" class="hidden">
         <div class="toast-icon"><i data-lucide="info" size="20"></i></div>
         <span id="toast-message" style="font-weight:700; font-size:0.9rem;">Success message</span>
+    </div>
+
+    <!-- MODAL SYSTEM -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+        <div class="modal-content card-custom">
+            <h2 id="modal-title">Reset Password</h2>
+            <div id="modal-body"></div>
+            <div class="modal-footer" style="display:flex; gap:1rem; margin-top:2rem; justify-content:flex-end;">
+                <button id="modal-cancel" class="btn-primary-custom"
+                    style="background:none; color:var(--text-muted); box-shadow:none;">Cancel</button>
+                <button id="modal-ok" class="btn-primary-custom">Confirm</button>
+            </div>
+        </div>
     </div>
 
     <!-- Main Logic -->

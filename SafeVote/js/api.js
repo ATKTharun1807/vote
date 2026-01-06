@@ -56,10 +56,40 @@ export class VotingAPI {
         return stored === pass;
     }
 
-    updateStudentPassword(vid, newPass) {
+    async updateStudentPassword(vid, newPass) {
+        // Update local state immediately for instant feedback
         this.persistentStudentPasswords[vid.toString()] = newPass;
-        this.saveToStorage();
-        return true;
+
+        if (this.useLocalStorage) {
+            this.saveToStorage();
+            return true;
+        }
+
+        try {
+            const configRef = doc(this.db, this.PATHS(appId).config, 'main');
+            // Use dot notation to update ONLY this student's password without affecting others
+            await updateDoc(configRef, {
+                [`studentPasswords.${vid}`]: newPass
+            });
+            return true;
+        } catch (e) {
+            console.error("Firestore Update Failed, trying fallback:", e);
+            try {
+                // If updateDoc failed (likely map doesn't exist), try to set it but ONLY if we can avoid overwriting
+                const snap = await getDoc(doc(this.db, this.PATHS(appId).config, 'main'));
+                const curData = snap.exists() ? snap.data() : {};
+                const passwords = curData.studentPasswords || {};
+                passwords[vid.toString()] = newPass;
+
+                await setDoc(doc(this.db, this.PATHS(appId).config, 'main'), {
+                    studentPasswords: passwords
+                }, { merge: true });
+                return true;
+            } catch (e2) {
+                console.error("Firebase Password Update Failed completely:", e2);
+                return false;
+            }
+        }
     }
 
     async updateAdminKey(newKey) {
@@ -73,11 +103,11 @@ export class VotingAPI {
     }
 
     async initAuth() {
-        // Check if config is still placeholder
-        if (firebaseConfig.apiKey.includes("YOUR") || firebaseConfig.apiKey.includes("AIzaSy...")) {
+        // Check if config is still placeholder - strictly look for literal placeholder strings
+        if (firebaseConfig.apiKey.includes("YOUR_API_KEY") || firebaseConfig.apiKey === "placeholder") {
             console.warn("Using LocalStorage mode: No valid Firebase config found.");
             this.useLocalStorage = true;
-            this.loadFromStorage(); // Ensure fresh load
+            this.loadFromStorage();
             return true;
         }
 
@@ -101,10 +131,19 @@ export class VotingAPI {
                     this.electionStatus = data.status || 'NOT_STARTED';
                     this.electionName = data.electionName || 'Student Council Election';
                     this.adminKey = data.adminKey || 'admin123';
+
+                    // Directly use cloud data; Firebase handles local latency compensation automatically
                     this.persistentStudentPasswords = data.studentPasswords || {};
+
                     if (window.app) window.app.refreshUI();
                 } else {
-                    setDoc(doc(db, p.config, 'main'), { status: 'NOT_STARTED', adminKey: 'admin123', electionName: 'Student Council Election', studentPasswords: {} });
+                    // Initialize document if missing
+                    setDoc(doc(db, p.config, 'main'), {
+                        status: 'NOT_STARTED',
+                        adminKey: 'admin123',
+                        electionName: 'Student Council Election',
+                        studentPasswords: {}
+                    });
                 }
             });
 
