@@ -83,7 +83,7 @@ export class App {
         }
     }
 
-    handleStudentLogin() {
+    async handleStudentLogin() {
         const idInput = document.getElementById('student-reg-input');
         const passInput = document.getElementById('student-pass-input');
         const val = idInput.value.trim();
@@ -92,11 +92,17 @@ export class App {
         if (!val) return this.showToast("Please enter your ID", "error");
         if (!pass) return this.showToast("Please enter your password", "error");
 
-        const student = STUDENT_DATABASE.find(s => s.regNo === parseInt(val));
-        if (!student) return this.showToast("Student ID not found", "error");
+        // Try verifying with API (MongoDB)
+        const isValid = await api.verifyStudent(val, pass);
+        if (!isValid) {
+            return this.showToast("Invalid ID or Password", "error");
+        }
 
-        if (!api.verifyStudent(student.regNo, pass)) {
-            return this.showToast("Invalid password", "error");
+        // Find student details from local sync
+        let student = api.localStudents.find(s => s.regNo.toString() === val);
+        if (!student) {
+            // Fallback lookup if not in local list yet
+            student = { name: `Voter ${val}`, regNo: val };
         }
 
         this.role = 'voter';
@@ -155,7 +161,7 @@ export class App {
         }
         this.activeTab = tabId;
 
-        const tabs = ['vote', 'admin', 'results', 'blockchain', 'guide'];
+        const tabs = ['vote', 'admin', 'students', 'results', 'blockchain', 'guide'];
         tabs.forEach(t => {
             const el = document.getElementById(`tab-${t}`);
             if (el) {
@@ -165,8 +171,13 @@ export class App {
 
         const activeTabEl = document.getElementById(`tab-${tabId}`);
         if (activeTabEl) {
-            if (tabId === 'guide') activeTabEl.classList.add('active-guide');
-            else activeTabEl.classList.add('active');
+            if (tabId === 'guide') {
+                activeTabEl.style.background = '#10b981';
+                activeTabEl.style.color = 'white';
+                activeTabEl.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)';
+            } else {
+                activeTabEl.classList.add('active');
+            }
         }
 
         this.renderContent();
@@ -189,12 +200,16 @@ export class App {
         container.innerHTML = '';
 
         const adminTab = document.getElementById('tab-admin');
+        const studentsTab = document.getElementById('tab-students');
         const resultsTab = document.getElementById('tab-results');
+
         if (adminTab) adminTab.classList.toggle('hidden', this.role !== 'admin');
+        if (studentsTab) studentsTab.classList.toggle('hidden', this.role !== 'admin');
         if (resultsTab) resultsTab.classList.toggle('hidden', this.role !== 'admin' && api.electionStatus !== 'ENDED');
 
         if (this.activeTab === 'vote') this.renderVoteTab(container);
         else if (this.activeTab === 'admin') this.renderAdminTab(container);
+        else if (this.activeTab === 'students') this.renderStudentsTab(container);
         else if (this.activeTab === 'results') this.renderResultsTab(container);
         else if (this.activeTab === 'blockchain') this.renderBlockchainTab(container);
         else if (this.activeTab === 'guide') this.renderGuideTab(container);
@@ -320,7 +335,7 @@ export class App {
                     <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem">Change Admin Security Key</p>
                     <div style="display:flex; gap:0.5rem">
                          <input id="new-admin-key" type="password" class="form-input" placeholder="New Key" style="font-size:0.8rem">
-                         <button onclick="window.app.handleUpdateAdminKey()" class="btn-primary-custom" style="padding:0.5rem 1rem; background:var(--text-muted)">UPDATE</button>
+                         <button onclick="window.app.handleUpdateAdminKey()" class="btn-primary-custom" style="padding:0.5rem 1rem; background:var(--text-muted); color:white;">UPDATE</button>
                     </div>
                 </div>
             </div>
@@ -419,17 +434,31 @@ export class App {
         body.innerHTML = `
             <div class="form-group">
                 <label class="form-label">Current Password</label>
-                <input type="password" id="modal-pass-current" class="form-input" placeholder="Enter current password">
+                <div style="position: relative;">
+                    <input type="password" id="modal-pass-current" class="form-input" placeholder="Enter current password">
+                    <i data-lucide="eye" id="modal-pass-current-icon" onclick="window.app.togglePasswordVisibility('modal-pass-current', 'modal-pass-current-icon')" 
+                       style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; width: 18px; height: 18px;"></i>
+                </div>
             </div>
             <div class="form-group">
                 <label class="form-label">New Password (Min 4 chars)</label>
-                <input type="password" id="modal-pass-new" class="form-input" placeholder="Enter new password">
+                <div style="position: relative;">
+                    <input type="password" id="modal-pass-new" class="form-input" placeholder="Enter new password">
+                    <i data-lucide="eye" id="modal-pass-new-icon" onclick="window.app.togglePasswordVisibility('modal-pass-new', 'modal-pass-new-icon')" 
+                       style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; width: 18px; height: 18px;"></i>
+                </div>
             </div>
             <div class="form-group">
                 <label class="form-label">Confirm New Password</label>
-                <input type="password" id="modal-pass-confirm" class="form-input" placeholder="Re-enter new password">
+                <div style="position: relative;">
+                    <input type="password" id="modal-pass-confirm" class="form-input" placeholder="Re-enter new password">
+                    <i data-lucide="eye" id="modal-pass-confirm-icon" onclick="window.app.togglePasswordVisibility('modal-pass-confirm', 'modal-pass-confirm-icon')" 
+                       style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; width: 18px; height: 18px;"></i>
+                </div>
             </div>
         `;
+
+        if (window.lucide) window.lucide.createIcons();
 
         overlay.classList.remove('hidden');
 
@@ -495,9 +524,11 @@ export class App {
         });
     }
 
-    togglePasswordVisibility() {
-        const input = document.getElementById('student-pass-input');
-        const icon = document.getElementById('toggle-pass-icon');
+    togglePasswordVisibility(inputId = 'student-pass-input', iconId = 'toggle-pass-icon') {
+        const input = document.getElementById(inputId);
+        const icon = document.getElementById(iconId);
+        if (!input || !icon) return;
+
         if (input.type === 'password') {
             input.type = 'text';
             icon.setAttribute('data-lucide', 'eye-off');
@@ -622,6 +653,99 @@ export class App {
             }).catch(err => {
                 this.showToast("Error saving: " + (err.message || "Unknown error"), "error");
             });
+        }
+    }
+
+    renderStudentsTab(container) {
+        const html = `
+            <div class="card-custom" style="padding: 0; overflow: hidden; border:1px solid #e2e8f0; background:white">
+                <div style="padding: 1.5rem 2rem; border-bottom: 1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                    <h3 style="margin:0; font-weight:800; font-size:1.2rem">Registered Student Management</h3>
+                    <div style="background:#eff6ff; color:#2563eb; padding: 0.35rem 0.85rem; border-radius: 99px; font-weight: 800; font-size: 0.75rem; display:flex; align-items:center; gap:0.4rem;">
+                        <i data-lucide="users" style="width:14px; height:14px"></i>
+                        ${api.localStudents.length} Students
+                    </div>
+                </div>
+                <div style="min-height: 400px;">
+                    <table class="admin-table" style="margin-bottom:0">
+                        <thead>
+                            <tr>
+                                <th>STUDENT DETAILS</th>
+                                <th>CREDENTIALS</th>
+                                <th style="text-align:right">ACTION</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${api.localStudents.length === 0 ? `<tr><td colspan="3" style="text-align:center; padding:3rem; color:var(--text-muted)">No students found in database.</td></tr>` : ''}
+                            ${api.localStudents.sort((a, b) => a.regNo - b.regNo).map(s => `
+                                <tr>
+                                    <td>
+                                        <div style="font-weight:800; color:#1e293b">${s.name}</div>
+                                        <div style="color:#64748b; font-size:0.75rem">Roll: ${s.regNo}</div>
+                                    </td>
+                                    <td><span style="background:#f1f5f9; color:#475569; padding:4px 8px; border-radius:6px; font-size:0.75rem; font-family:monospace; font-weight:700">${s.password}</span></td>
+                                    <td style="text-align:right">
+                                        <div style="display:flex; gap:1rem; justify-content:flex-end">
+                                            <button onclick="window.app.handleAdminResetPassword('${s.regNo}')" style="background:none; border:none; color:#2563eb; font-weight:800; cursor:pointer; font-size:0.7rem; text-transform:uppercase">RESET PW</button>
+                                            <button onclick="api.deleteStudent('${s.id}')" style="background:none; border:none; color:#ef4444; font-weight:800; cursor:pointer; font-size:0.7rem; text-transform:uppercase">REMOVE</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div style="padding: 2rem; background: #f8fafc; border-top: 1px solid #e2e8f0;">
+                    <h3 style="margin:0 0 1.5rem 0; font-size:1rem">Add New Student</h3>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:1.5rem; margin-bottom:1.5rem">
+                         <div class="form-group" style="margin:0">
+                            <label class="form-label">STUDENT NAME</label>
+                            <input id="sn" class="form-input" style="border-radius:0.75rem; padding:0.8rem 1.25rem" placeholder="e.g. Jane Smith">
+                        </div>
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">ROLL / REG NO</label>
+                            <input id="sr" class="form-input" style="border-radius:0.75rem; padding:0.8rem 1.25rem" placeholder="e.g. 714023...">
+                        </div>
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">ACCESS PASSWORD</label>
+                            <input id="sp" class="form-input" style="border-radius:0.75rem; padding:0.8rem 1.25rem" placeholder="Initial pass">
+                        </div>
+                    </div>
+                    <button onclick="window.app.handleAddStudent()" class="btn-primary-custom" style="width:100%; border-radius:0.75rem; padding:1rem; background:#2563eb; font-weight:800">ADD TO DATABASE</button>
+                </div>
+            </div>
+        `;
+        container.innerHTML = html;
+    }
+
+    handleAddStudent() {
+        const n = document.getElementById('sn').value.trim();
+        const r = document.getElementById('sr').value.trim();
+        const p = document.getElementById('sp').value.trim();
+
+        if (n && r && p) {
+            api.addStudent(r, n, p).then(() => {
+                this.showToast("Student Added!");
+                this.renderContent();
+                document.getElementById('sn').value = '';
+                document.getElementById('sr').value = '';
+                document.getElementById('sp').value = '';
+            }).catch(err => {
+                this.showToast("Error adding student", "error");
+            });
+        } else {
+            this.showToast("Fill all student fields", "error");
+        }
+    }
+
+    async handleAdminResetPassword(regNo) {
+        const newPass = prompt(`Enter new password for Roll No: ${regNo}`);
+        if (newPass && newPass.length >= 4) {
+            const success = await api.updateStudentPassword(regNo, newPass);
+            if (success) this.showToast("Password reset successfully!");
+            else this.showToast("Failed to reset password", "error");
+        } else if (newPass) {
+            this.showToast("Password too short", "error");
         }
     }
 

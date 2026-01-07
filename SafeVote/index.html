@@ -46,10 +46,9 @@
 
             <div id="home-nav" class="mobile-hidden" style="display:flex; gap:1.5rem; align-items:center;">
                 <div id="sync-badge" class="hidden"
-                    style="display:flex; align-items:center; gap:0.4rem; background:rgba(34,197,94,0.1); color:#16a34a; padding:0.25rem 0.6rem; border-radius:99px; font-size:0.65rem; font-weight:800; border:1px solid rgba(34,197,94,0.2);">
-                    <div
-                        style="width:6px; height:6px; background:#22c55e; border-radius:50%; animation: pulse 2s infinite;">
-                    </div>
+                    style="display:flex; align-items:center; gap:0.4rem; background:rgba(37,99,235,0.05); color:#2563eb; padding:0.25rem 0.6rem; border-radius:99px; font-size:0.65rem; font-weight:800; border:1px solid rgba(37,99,235,0.1);">
+                    <i data-lucide="refresh-cw"
+                        style="width:12px; height:12px; animation: spin 2s linear infinite;"></i>
                     LIVE SYNC
                 </div>
                 <button onclick="window.app.showHome(); window.app.toggleMobileMenu(false);"
@@ -230,8 +229,13 @@
                         only.</p>
                     <div class="form-group">
                         <label class="form-label">Security Access Key</label>
-                        <input type="password" id="admin-key-input" class="form-input" placeholder="••••••••"
-                            onkeyup="if(event.key==='Enter') window.app.handleAdminLogin()">
+                        <div style="position: relative;">
+                            <input type="password" id="admin-key-input" class="form-input" placeholder="••••••••"
+                                onkeyup="if(event.key==='Enter') window.app.handleAdminLogin()">
+                            <i data-lucide="eye" id="admin-key-icon"
+                                onclick="window.app.togglePasswordVisibility('admin-key-input', 'admin-key-icon')"
+                                style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; width: 18px; height: 18px;"></i>
+                        </div>
                     </div>
                     <button onclick="window.app.handleAdminLogin()" class="btn-primary-custom"
                         style="width:100%; padding:1.25rem; background:#1e293b;">Login as Administrator</button>
@@ -251,6 +255,8 @@
                         Portal</button>
                     <button id="tab-results" onclick="window.app.switchTab('results')" class="nav-tab hidden">Live
                         Results</button>
+                    <button id="tab-students" onclick="window.app.switchTab('students')"
+                        class="nav-tab hidden">Registered Students</button>
                     <button id="tab-blockchain" onclick="window.app.switchTab('blockchain')" class="nav-tab">Digital
                         Ledger</button>
                 </nav>
