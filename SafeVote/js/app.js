@@ -38,6 +38,7 @@ export class App {
         this.toggleView('home-view');
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('home-nav').classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     toggleView(id) {
