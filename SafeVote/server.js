@@ -4,7 +4,7 @@ const path = require('path');
 
 const port = process.env.PORT || 8081;
 
-http.createServer((req, res) => {
+const server = http.createServer((req, res) => {
     let url = req.url.split('?')[0];
     let filePath = path.join(__dirname, url === '/' ? 'index.html' : url);
 
@@ -32,6 +32,24 @@ http.createServer((req, res) => {
             res.end(content, 'utf-8');
         }
     });
-}).listen(port, '0.0.0.0', () => {
-    console.log(`Server running at http://localhost:${port}/`);
 });
+
+function startServer(p) {
+    server.listen(p, '0.0.0.0', () => {
+        console.log(`\n🚀 Server successfully started!`);
+        console.log(`🔗 Local Address:  http://localhost:${p}/`);
+        console.log(`🌐 Network Access: http://0.0.0.0:${p}/`);
+        console.log(`💡 Tip: Share this link for voting.\n`);
+    });
+
+    server.on('error', (e) => {
+        if (e.code === 'EADDRINUSE') {
+            console.warn(`⚠️  Port ${p} is busy, trying ${p + 1}...`);
+            startServer(p + 1);
+        } else {
+            console.error("❌ Server Error:", e);
+        }
+    });
+}
+
+startServer(port);

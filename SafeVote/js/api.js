@@ -122,7 +122,10 @@ export class VotingAPI {
                 if (initialToken) await signInWithCustomToken(auth, initialToken);
                 else await signInAnonymously(auth);
             } catch (authErr) {
-                console.warn("Auth failed, proceeding anyway:", authErr);
+                console.warn("Auth failed, switching to LocalStorage mode:", authErr);
+                this.useLocalStorage = true;
+                this.loadFromStorage();
+                return true;
             }
 
             const p = this.PATHS();
@@ -144,12 +147,21 @@ export class VotingAPI {
                 } else {
                     setDoc(doc(db, p.config, 'main'), { status: 'NOT_STARTED', adminKey: 'admin123', electionName: 'Student Council Election', studentPasswords: {} });
                 }
-            }, (err) => console.error("Config Sync Error:", err));
+            }, (err) => {
+                console.error("Config Sync Error:", err);
+                if (err.code === 'permission-denied') {
+                    this.useLocalStorage = true;
+                    this.loadFromStorage();
+                    if (window.app) window.app.refreshUI();
+                }
+            });
 
             // Real-time Candidate Sync
             onSnapshot(collection(db, p.candidates), (snap) => {
                 this.localCandidates = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 if (window.app) window.app.refreshUI();
+            }, (err) => {
+                if (err.code === 'permission-denied') this.useLocalStorage = true;
             });
 
             // Real-time Blockchain Sync
@@ -255,7 +267,9 @@ export class VotingAPI {
 
         try {
             await addDoc(collection(this.db, this.PATHS().candidates), {
-                ...newCand,
+                name,
+                party,
+                votes: 0,
                 addedAt: serverTimestamp()
             });
             return true;

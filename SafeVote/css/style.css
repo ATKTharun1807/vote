@@ -231,7 +231,7 @@ p {
 
 .admin-table td {
     padding: 1.25rem;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--card-border);
 }
 
 .add-candidate-section {

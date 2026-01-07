@@ -221,7 +221,7 @@ export class App {
                     </div>
                     <div style="text-align:right">
                          <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted)">ID: ${this.currentUser.regNo}</div>
-                         <button onclick="window.app.handleResetPassword()" class="btn-primary-custom" style="margin-top:0.75rem; padding:0.4rem 0.8rem; font-size:0.7rem; background:var(--text-muted)">RESET PASSWORD</button>
+                         <button onclick="window.app.handleResetPassword()" class="btn-primary-custom" style="margin-top:0.75rem; padding:0.4rem 0.8rem; font-size:0.7rem; background:var(--text-muted); color:white;">RESET PASSWORD</button>
                     </div>
                 </div>
             </div>
@@ -352,7 +352,7 @@ export class App {
                             <tr>
                                 <td><b>${c.name}</b><br><small style="color:var(--text-muted)">${c.party}</small></td>
                                 <td style="text-align:center">
-                                    <span style="background:#e2e8f0; padding:0.25rem 0.75rem; border-radius:12px; font-weight:900">${c.votes}</span>
+                                    <span style="background:var(--primary-light); color:var(--primary); padding:0.25rem 0.75rem; border-radius:12px; font-weight:900">${c.votes}</span>
                                 </td>
                                 <td style="text-align:right">
                                     <button onclick="api.deleteCandidate('${c.id}')" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer">REMOVE</button>
@@ -543,7 +543,7 @@ export class App {
             html += `
                 <div class="card-custom" style="display:flex; justify-content:space-between; align-items:center; ${isWinner ? 'border:2px solid #10b981; background:#f0fdf4' : ''}">
                     <div style="display:flex; align-items:center; gap:1.5rem">
-                        <div style="width:40px; height:40px; border-radius:50%; background:${isWinner ? '#10b981' : 'var(--card-border)'}; color:${isWinner ? 'white' : 'var(--text-muted)'}; display:flex; align-items:center; justify-content:center; font-weight:900">
+                        <div style="width:40px; height:40px; border-radius:50%; background:${isWinner ? '#10b981' : 'var(--primary-light)'}; color:${isWinner ? 'white' : 'var(--primary)'}; display:flex; align-items:center; justify-content:center; font-weight:900">
                             ${index + 1}
                         </div>
                         <div>
@@ -620,7 +620,7 @@ export class App {
                 document.getElementById('cn').value = '';
                 document.getElementById('cp').value = '';
             }).catch(err => {
-                this.showToast("Error saving data", "error");
+                this.showToast("Error saving: " + (err.message || "Unknown error"), "error");
             });
         }
     }
