@@ -1,32 +1,57 @@
-// MongoDB Atlas API Provider for SafeVote
+// MongoDB Atlas / NeDB API Provider for SafeVote
 export class VotingAPI {
     constructor() {
+        this.baseUrl = ''; // Same origin
         this.electionName = 'Student Council Election';
         this.electionStatus = 'NOT_STARTED';
         this.adminKey = 'admin123';
         this.localCandidates = [];
         this.localBlockchain = [];
+        this.localStudents = []; // List of all students
         this.totalVotersCount = 0;
         this.voterIds = [];
-        this.persistentStudentPasswords = {}; // Storage for student passwords
-        this.useLocalStorage = false;
+        this.isLive = false;
 
-        // Load initial state from LocalStorage as a fallback safety
-        this.loadFromStorage();
+        this.startPolling();
     }
 
-    loadFromStorage() {
+    async initAuth() {
+        // For NeDB version, we just sync immediately
+        await this.syncData();
+        return true;
+    }
+
+    async syncData() {
         try {
-            const data = JSON.parse(localStorage.getItem('safevote_backup') || '{}');
+            const res = await fetch(`${this.baseUrl}/api/sync`);
+            if (!res.ok) throw new Error("Sync failed");
+            const data = await res.json();
+
             this.localCandidates = data.candidates || [];
             this.localBlockchain = data.blockchain || [];
-            this.voterIds = data.voters || [];
-            this.persistentStudentPasswords = data.studentPasswords || {};
+            this.localStudents = data.students || [];
+            this.electionName = data.config.electionName;
+            this.electionStatus = data.config.electionStatus;
+            this.adminKey = data.config.adminKey;
+
+            this.voterIds = this.localStudents.filter(s => s.hasVoted).map(s => s.regNo.toString());
             this.totalVotersCount = this.voterIds.length;
+            this.isLive = true;
 
             if (window.app) window.app.refreshUI();
+
+            // Backup to localStorage
+            localStorage.setItem('safevote_backup', JSON.stringify({
+                candidates: this.localCandidates,
+                blockchain: this.localBlockchain,
+                voters: this.voterIds,
+                students: this.localStudents,
+                config: data.config
+            }));
+
         } catch (e) {
-            console.error("Sync Error", e);
+            console.error("Sync Error:", e);
+            this.isLive = false;
         }
     }
 
@@ -69,15 +94,17 @@ export class VotingAPI {
             body: JSON.stringify({ adminKey: newKey })
         });
         if (res.ok) this.adminKey = newKey;
+        await this.syncData();
         return res.ok;
     }
 
     async castVote(vid, cid) {
+        const last = this.localBlockchain[this.localBlockchain.length - 1] || { hash: "0", index: -1 };
         const block = {
-            index: this.localBlockchain.length,
+            index: last.index + 1,
             timestamp: new Date().toISOString(),
             data: { voterHash: vid, candidateId: cid },
-            previousHash: this.localBlockchain.length > 0 ? this.localBlockchain[this.localBlockchain.length - 1].hash : "0",
+            previousHash: last.hash,
             hash: Math.random().toString(36).substring(2, 12)
         };
 
@@ -101,7 +128,7 @@ export class VotingAPI {
             body: JSON.stringify({ electionStatus: s })
         });
         this.electionStatus = s;
-        if (window.app) window.app.refreshUI();
+        await this.syncData();
     }
 
     async updateElectionName(name) {
@@ -112,7 +139,7 @@ export class VotingAPI {
         });
         this.electionName = name;
         document.title = `${name} - SafeVote`;
-        if (window.app) window.app.refreshUI();
+        await this.syncData();
     }
 
     async addCandidate(name, party) {

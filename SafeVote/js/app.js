@@ -285,7 +285,7 @@ export class App {
 
     renderAdminTab(container) {
         const turnoutCount = api.totalVotersCount;
-        const totalStudents = STUDENT_DATABASE.length;
+        const totalStudents = api.localStudents.length || STUDENT_DATABASE.length;
         const turnoutPercent = totalStudents ? ((turnoutCount / totalStudents) * 100).toFixed(1) : 0;
 
         let html = `
@@ -358,14 +358,14 @@ export class App {
                     </thead>
                     <tbody>
                         ${api.localCandidates.length === 0 ? `<tr><td colspan="3" style="text-align:center; padding:3rem; color:var(--text-muted)">No candidates added yet. Use the form below.</td></tr>` : ''}
-                        ${api.localCandidates.map(c => `
+                        ${[...api.localCandidates].sort((a, b) => a.name.localeCompare(b.name)).map(c => `
                             <tr>
                                 <td><b>${c.name}</b><br><small style="color:var(--text-muted)">${c.party}</small></td>
                                 <td style="text-align:center">
                                     <span style="background:var(--primary-light); color:var(--primary); padding:0.25rem 0.75rem; border-radius:12px; font-weight:900">${c.votes}</span>
                                 </td>
                                 <td style="text-align:right">
-                                    <button onclick="api.deleteCandidate('${c.id}')" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer">REMOVE</button>
+                                    <button onclick="api.deleteCandidate('${c.id || c._id}')" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer">REMOVE</button>
                                 </td>
                             </tr>
                         `).join('')}
@@ -397,6 +397,132 @@ export class App {
         `;
         container.innerHTML = html;
     }
+
+    renderStudentsTab(container) {
+        const sortedStudents = [...api.localStudents].sort((a, b) => a.name.localeCompare(b.name));
+
+        let html = `
+            <div style="margin-bottom:2rem; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h2 style="margin:0">Registered Students</h2>
+                    <p style="color:var(--text-muted)">Manage voter database and security credentials.</p>
+                </div>
+                <div style="display:flex; gap:1rem; align-items:center;">
+                    <button onclick="window.app.handleImportStudents()" class="btn-primary-custom" style="background:var(--card-bg); color:var(--text-main); border:1px solid var(--card-border); padding:0.5rem 1rem; font-size:0.75rem;">IMPORT ALL FROM DB</button>
+                    <div style="background:var(--primary-light); color:var(--primary); padding: 0.5rem 1rem; border-radius: 99px; font-weight: 800;">
+                        ${api.localStudents.length} Students
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-custom" style="padding: 0; overflow: hidden; margin-bottom: 3rem;">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Student Name</th>
+                            <th>Roll / Reg No</th>
+                            <th>Password</th>
+                            <th style="text-align:center">Status</th>
+                            <th style="text-align:right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sortedStudents.length === 0 ? `<tr><td colspan="5" style="text-align:center; padding:3rem; color:var(--text-muted)">No students found. Add one below.</td></tr>` : ''}
+                        ${sortedStudents.map(s => `
+                            <tr>
+                                <td><b>${s.name}</b></td>
+                                <td><code>${s.regNo}</code></td>
+                                <td style="display:flex; align-items:center; gap:0.5rem;">
+                                    <span style="font-family:monospace; background:rgba(0,0,0,0.05); padding:2px 6px; border-radius:4px;">${s.password || '********'}</span>
+                                    <button onclick="window.app.handleAdminChangePassword('${s.regNo}', '${s.name}')" style="background:none; border:none; color:var(--primary); font-size:0.6rem; font-weight:800; cursor:pointer; text-decoration:underline;">CHANGE</button>
+                                </td>
+                                <td style="text-align:center">
+                                    <span style="color:${s.hasVoted ? '#10b981' : '#f59e0b'}; font-weight:800; font-size:0.7rem; text-transform:uppercase;">
+                                        ${s.hasVoted ? 'Voted' : 'Pending'}
+                                    </span>
+                                </td>
+                                <td style="text-align:right">
+                                    <button onclick="api.deleteStudent('${s._id}')" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer">REMOVE</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="add-candidate-section">
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="margin:0">Add New Student</h3>
+                    <p style="margin:0; font-size:0.85rem; color:var(--text-muted)">Register a new voter to the system.</p>
+                </div>
+                <div class="grid-form" style="grid-template-columns: 1fr 1fr 1fr auto;">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Full Name</label>
+                        <input id="sn" class="form-input" placeholder="e.g. Alice Smith" autocomplete="off">
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Roll Number</label>
+                        <input id="sr" class="form-input" placeholder="e.g. 714023..." autocomplete="off">
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Password</label>
+                        <input id="sp" class="form-input" placeholder="Default: atkboss" autocomplete="off">
+                    </div>
+                    <button onclick="window.app.handleAddStudent()" class="btn-primary-custom" style="padding: 1rem 2rem;">ADD STUDENT</button>
+                </div>
+            </div>
+        `;
+        container.innerHTML = html;
+    }
+
+    async handleAdminChangePassword(regNo, studentName) {
+        const newPass = prompt(`Enter new password for ${studentName} (${regNo}):`, "atkboss");
+        if (newPass === null) return; // Cancelled
+        if (newPass.trim().length < 4) return this.showToast("Password must be at least 4 characters", "error");
+
+        const success = await api.updateStudentPassword(regNo, newPass.trim());
+        if (success) {
+            this.showToast(`Password updated for ${studentName}`);
+            this.renderContent();
+        } else {
+            this.showToast("Failed to update password", "error");
+        }
+    }
+
+    async handleImportStudents() {
+        if (!confirm(`Import all ${STUDENT_DATABASE.length} students from local database? This may take a moment.`)) return;
+
+        this.showToast("Importing students...", "info");
+        let count = 0;
+        for (const s of STUDENT_DATABASE) {
+            const exists = api.localStudents.find(ls => ls.regNo === s.regNo);
+            if (!exists) {
+                await api.addStudent(s.regNo, s.name, "atkboss");
+                count++;
+            }
+        }
+        this.showToast(`Imported ${count} new students!`, "success");
+        this.renderContent();
+    }
+
+    handleAddStudent() {
+        const n = document.getElementById('sn').value.trim();
+        const r = document.getElementById('sr').value.trim();
+        const p = document.getElementById('sp').value.trim();
+
+        if (!n || !r) return this.showToast("Name and Roll No required", "error");
+
+        api.addStudent(r, n, p).then(() => {
+            this.showToast("Student Registered!");
+            this.renderContent();
+            document.getElementById('sn').value = '';
+            document.getElementById('sr').value = '';
+            document.getElementById('sp').value = '';
+        }).catch(err => {
+            this.showToast("Error: " + err.message, "error");
+        });
+    }
+
 
     handleUpdateName() {
         const name = document.getElementById('election-name-input').value.trim();
