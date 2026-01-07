@@ -1,7 +1,7 @@
 // MongoDB Atlas API Provider for SafeVote
 export class VotingAPI {
     constructor() {
-        this.baseUrl = window.location.origin;
+        this.baseUrl = window.location.protocol === 'file:' ? 'http://localhost:8081' : window.location.origin;
         this.electionName = 'Student Council Election';
         this.electionStatus = 'NOT_STARTED';
         this.adminKey = 'admin123';
@@ -14,13 +14,13 @@ export class VotingAPI {
 
         // Polling interval for "real-time" updates (since we aren't using WebSockets/Socket.io yet)
         this.refreshInterval = null;
-        this.init();
     }
 
-    async init() {
+    async initAuth() {
         await this.fetchConfig();
         await this.syncData();
         this.startPolling();
+        return true;
     }
 
     async fetchConfig() {
@@ -50,6 +50,7 @@ export class VotingAPI {
             this.localCandidates = (await cRez.json()).map(c => ({ ...c, id: c._id }));
             this.localBlockchain = await bRez.json();
             this.localStudents = (await sRez.json()).map(s => ({ ...s, id: s._id }));
+            console.log(`[API] Synced ${this.localStudents.length} students`);
 
             this.voterIds = this.localStudents.filter(s => s.hasVoted).map(s => s.regNo.toString());
             this.totalVotersCount = this.voterIds.length;

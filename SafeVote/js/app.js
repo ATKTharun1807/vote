@@ -180,6 +180,7 @@ export class App {
             }
         }
 
+        if (tabId === 'students') api.syncData();
         this.renderContent();
     }
 
@@ -681,7 +682,7 @@ export class App {
                                 <tr>
                                     <td>
                                         <div style="font-weight:800; color:#1e293b">${s.name}</div>
-                                        <div style="color:#64748b; font-size:0.75rem">Roll: ${s.regNo}</div>
+                                        <div style="color:#64748b; font-size:0.75rem">Roll: ${s.roll || 'N/A'} | ID: ${s.regNo}</div>
                                     </td>
                                     <td><span style="background:#f1f5f9; color:#475569; padding:4px 8px; border-radius:6px; font-size:0.75rem; font-family:monospace; font-weight:700">${s.password}</span></td>
                                     <td style="text-align:right">

@@ -17,39 +17,42 @@ const db = {
     blockchain: Datastore.create({ filename: 'data/blockchain.db', autoload: true })
 };
 
-// --- Automatic Data Importer (Seeding) ---
 async function seedDatabase() {
-    const studentCount = await db.students.count({});
-    if (studentCount === 0) {
-        console.log("📂 Database is empty. Synchronizing data from all SafeVote files...");
-        try {
-            // Priority 1: js/database.js
-            const dataPath = path.join(__dirname, 'js/database.js');
-            if (fs.existsSync(dataPath)) {
-                const content = fs.readFileSync(dataPath, 'utf8');
-                const students = [];
-                // Robust regex to capture roll, regNo, and name
-                const regex = /\{\s*roll:\s*(\d+),\s*regNo:\s*(\d+),\s*name:\s*['"]([^'"]+)['"]\s*\}/g;
-                let m;
-                while ((m = regex.exec(content)) !== null) {
-                    students.push({
-                        roll: parseInt(m[1]),
-                        regNo: parseInt(m[2]),
-                        name: m[3],
-                        password: 'atkboss', // Default starting password
+    console.log("📂 Database Synchronization Started...");
+    try {
+        const dataPath = path.join(__dirname, 'js/database.js');
+        if (fs.existsSync(dataPath)) {
+            const content = fs.readFileSync(dataPath, 'utf8');
+            const studentsToSync = [];
+            const regex = /\{\s*roll:\s*(\d+),\s*regNo:\s*(\d+),\s*name:\s*['"]([^'"]+)['"]\s*\}/g;
+            let m;
+            while ((m = regex.exec(content)) !== null) {
+                studentsToSync.push({
+                    roll: parseInt(m[1]),
+                    regNo: parseInt(m[2]),
+                    name: m[3]
+                });
+            }
+
+            for (const s of studentsToSync) {
+                const existing = await db.students.findOne({ regNo: s.regNo });
+                if (!existing) {
+                    await db.students.insert({
+                        ...s,
+                        password: 'atkboss',
                         hasVoted: false,
                         addedAt: new Date()
                     });
-                }
-
-                if (students.length > 0) {
-                    await db.students.insert(students);
-                    console.log(`✅ Successfully connected ${students.length} Student IDs to the local database!`);
+                } else if (!existing.roll) {
+                    // Update legacy records that are missing the roll field
+                    await db.students.update({ _id: existing._id }, { $set: { roll: s.roll } });
                 }
             }
-        } catch (e) {
-            console.error("❌ Migration Error:", e.message);
+            const count = await db.students.count({});
+            console.log(`✅ Student database synced. Total: ${count} students.`);
         }
+    } catch (e) {
+        console.error("❌ Migration Error:", e.message);
     }
 
     // Default Config
@@ -98,6 +101,7 @@ app.delete('/api/candidates/:id', async (req, res) => {
 // Students
 app.get('/api/students', async (req, res) => {
     const list = await db.students.find({}).sort({ regNo: 1 });
+    console.log(`[API] Serving ${list.length} students`);
     res.json(list);
 });
 
