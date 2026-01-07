@@ -171,13 +171,8 @@ export class App {
 
         const activeTabEl = document.getElementById(`tab-${tabId}`);
         if (activeTabEl) {
-            if (tabId === 'guide') {
-                activeTabEl.style.background = '#10b981';
-                activeTabEl.style.color = 'white';
-                activeTabEl.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)';
-            } else {
-                activeTabEl.classList.add('active');
-            }
+            if (tabId === 'guide') activeTabEl.classList.add('active-guide');
+            else activeTabEl.classList.add('active');
         }
 
         this.renderContent();
@@ -653,99 +648,6 @@ export class App {
             }).catch(err => {
                 this.showToast("Error saving: " + (err.message || "Unknown error"), "error");
             });
-        }
-    }
-
-    renderStudentsTab(container) {
-        const html = `
-            <div class="card-custom" style="padding: 0; overflow: hidden; border:1px solid #e2e8f0; background:white">
-                <div style="padding: 1.5rem 2rem; border-bottom: 1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
-                    <h3 style="margin:0; font-weight:800; font-size:1.2rem">Registered Student Management</h3>
-                    <div style="background:#eff6ff; color:#2563eb; padding: 0.35rem 0.85rem; border-radius: 99px; font-weight: 800; font-size: 0.75rem; display:flex; align-items:center; gap:0.4rem;">
-                        <i data-lucide="users" style="width:14px; height:14px"></i>
-                        ${api.localStudents.length} Students
-                    </div>
-                </div>
-                <div style="min-height: 400px;">
-                    <table class="admin-table" style="margin-bottom:0">
-                        <thead>
-                            <tr>
-                                <th>STUDENT DETAILS</th>
-                                <th>CREDENTIALS</th>
-                                <th style="text-align:right">ACTION</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${api.localStudents.length === 0 ? `<tr><td colspan="3" style="text-align:center; padding:3rem; color:var(--text-muted)">No students found in database.</td></tr>` : ''}
-                            ${api.localStudents.sort((a, b) => a.regNo - b.regNo).map(s => `
-                                <tr>
-                                    <td>
-                                        <div style="font-weight:800; color:#1e293b">${s.name}</div>
-                                        <div style="color:#64748b; font-size:0.75rem">Roll: ${s.regNo}</div>
-                                    </td>
-                                    <td><span style="background:#f1f5f9; color:#475569; padding:4px 8px; border-radius:6px; font-size:0.75rem; font-family:monospace; font-weight:700">${s.password}</span></td>
-                                    <td style="text-align:right">
-                                        <div style="display:flex; gap:1rem; justify-content:flex-end">
-                                            <button onclick="window.app.handleAdminResetPassword('${s.regNo}')" style="background:none; border:none; color:#2563eb; font-weight:800; cursor:pointer; font-size:0.7rem; text-transform:uppercase">RESET PW</button>
-                                            <button onclick="api.deleteStudent('${s.id}')" style="background:none; border:none; color:#ef4444; font-weight:800; cursor:pointer; font-size:0.7rem; text-transform:uppercase">REMOVE</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-                <div style="padding: 2rem; background: #f8fafc; border-top: 1px solid #e2e8f0;">
-                    <h3 style="margin:0 0 1.5rem 0; font-size:1rem">Add New Student</h3>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:1.5rem; margin-bottom:1.5rem">
-                         <div class="form-group" style="margin:0">
-                            <label class="form-label">STUDENT NAME</label>
-                            <input id="sn" class="form-input" style="border-radius:0.75rem; padding:0.8rem 1.25rem" placeholder="e.g. Jane Smith">
-                        </div>
-                        <div class="form-group" style="margin:0">
-                            <label class="form-label">ROLL / REG NO</label>
-                            <input id="sr" class="form-input" style="border-radius:0.75rem; padding:0.8rem 1.25rem" placeholder="e.g. 714023...">
-                        </div>
-                        <div class="form-group" style="margin:0">
-                            <label class="form-label">ACCESS PASSWORD</label>
-                            <input id="sp" class="form-input" style="border-radius:0.75rem; padding:0.8rem 1.25rem" placeholder="Initial pass">
-                        </div>
-                    </div>
-                    <button onclick="window.app.handleAddStudent()" class="btn-primary-custom" style="width:100%; border-radius:0.75rem; padding:1rem; background:#2563eb; font-weight:800">ADD TO DATABASE</button>
-                </div>
-            </div>
-        `;
-        container.innerHTML = html;
-    }
-
-    handleAddStudent() {
-        const n = document.getElementById('sn').value.trim();
-        const r = document.getElementById('sr').value.trim();
-        const p = document.getElementById('sp').value.trim();
-
-        if (n && r && p) {
-            api.addStudent(r, n, p).then(() => {
-                this.showToast("Student Added!");
-                this.renderContent();
-                document.getElementById('sn').value = '';
-                document.getElementById('sr').value = '';
-                document.getElementById('sp').value = '';
-            }).catch(err => {
-                this.showToast("Error adding student", "error");
-            });
-        } else {
-            this.showToast("Fill all student fields", "error");
-        }
-    }
-
-    async handleAdminResetPassword(regNo) {
-        const newPass = prompt(`Enter new password for Roll No: ${regNo}`);
-        if (newPass && newPass.length >= 4) {
-            const success = await api.updateStudentPassword(regNo, newPass);
-            if (success) this.showToast("Password reset successfully!");
-            else this.showToast("Failed to reset password", "error");
-        } else if (newPass) {
-            this.showToast("Password too short", "error");
         }
     }
 

@@ -1,7 +1,6 @@
 // MongoDB Atlas API Provider for SafeVote
 export class VotingAPI {
     constructor() {
-        this.baseUrl = window.location.origin;
         this.electionName = 'Student Council Election';
         this.electionStatus = 'NOT_STARTED';
         this.adminKey = 'admin123';
@@ -9,49 +8,20 @@ export class VotingAPI {
         this.localBlockchain = [];
         this.totalVotersCount = 0;
         this.voterIds = [];
-        this.localStudents = [];
-        this.isLive = false;
+        this.persistentStudentPasswords = {}; // Storage for student passwords
+        this.useLocalStorage = false;
 
-        // Polling interval for "real-time" updates (since we aren't using WebSockets/Socket.io yet)
-        this.refreshInterval = null;
-        this.init();
+        // Load initial state from LocalStorage as a fallback safety
+        this.loadFromStorage();
     }
 
-    async init() {
-        await this.fetchConfig();
-        await this.syncData();
-        this.startPolling();
-    }
-
-    async fetchConfig() {
+    loadFromStorage() {
         try {
-            const res = await fetch(`${this.baseUrl}/api/config`);
-            const data = await res.json();
-            this.electionName = data.electionName;
-            this.electionStatus = data.electionStatus;
-            this.adminKey = data.adminKey;
-            this.isLive = true;
-            document.title = `${this.electionName} - SafeVote`;
-            if (window.app) window.app.refreshUI();
-        } catch (e) {
-            console.error("Failed to fetch config", e);
-            this.isLive = false;
-        }
-    }
-
-    async syncData() {
-        try {
-            const [cRez, bRez, sRez] = await Promise.all([
-                fetch(`${this.baseUrl}/api/candidates`),
-                fetch(`${this.baseUrl}/api/blockchain`),
-                fetch(`${this.baseUrl}/api/students`)
-            ]);
-
-            this.localCandidates = (await cRez.json()).map(c => ({ ...c, id: c._id }));
-            this.localBlockchain = await bRez.json();
-            this.localStudents = (await sRez.json()).map(s => ({ ...s, id: s._id }));
-
-            this.voterIds = this.localStudents.filter(s => s.hasVoted).map(s => s.regNo.toString());
+            const data = JSON.parse(localStorage.getItem('safevote_backup') || '{}');
+            this.localCandidates = data.candidates || [];
+            this.localBlockchain = data.blockchain || [];
+            this.voterIds = data.voters || [];
+            this.persistentStudentPasswords = data.studentPasswords || {};
             this.totalVotersCount = this.voterIds.length;
 
             if (window.app) window.app.refreshUI();
