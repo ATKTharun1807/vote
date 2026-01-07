@@ -18,7 +18,18 @@ export class App {
             this.showToast("Database connection failed. Check config.", "error");
         }
         this.setTheme(this.theme);
-        this.showHome();
+
+        // Handle URL parameters for direct linking
+        const params = new URLSearchParams(window.location.search);
+        const view = params.get('view');
+
+        if (view === 'student') {
+            this.showView('student-login');
+        } else if (view === 'admin') {
+            this.showView('admin-login');
+        } else {
+            this.showHome();
+        }
     }
 
     showHome() {
@@ -298,6 +309,11 @@ export class App {
                     <p style="font-size:0.8rem; color:#15803d; margin-bottom:1rem">Generate PDF report with results.</p>
                     <button onclick="window.app.handleDownloadPDF()" class="btn-primary-custom" style="background:#16a34a; width:100%">GENERATE PDF</button>
                 </div>
+                <div class="feature-box" style="border-color: #ffedd5; background: #fffaf2;">
+                    <div class="feature-title" style="color: #9a3412;">Share Election link</div>
+                    <p style="font-size:0.8rem; color:#c2410c; margin-bottom:1rem">Copy a direct link for students to vote.</p>
+                    <button onclick="window.app.handleCopyLink()" class="btn-primary-custom" style="background:#f97316; width:100%">COPY VOTING LINK</button>
+                </div>
                 <div class="feature-box" style="border-color: var(--card-border); background: var(--bg-main);">
                     <div class="feature-title" style="color: var(--primary);">System Security</div>
                     <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem">Change Admin Security Key</p>
@@ -463,6 +479,18 @@ export class App {
                 okBtn.disabled = false;
                 okBtn.textContent = "Confirm";
             };
+        });
+    }
+
+    handleCopyLink() {
+        // Build the direct link for students
+        const url = window.location.origin + window.location.pathname + '?view=student';
+
+        navigator.clipboard.writeText(url).then(() => {
+            this.showToast("Voting link copied to clipboard!");
+        }).catch(err => {
+            console.error('Failed to copy: ', err);
+            this.showToast("Failed to copy link. Please copy manually: " + url, "error");
         });
     }
 

@@ -136,6 +136,10 @@ export class VotingAPI {
                     this.adminKey = data.adminKey || 'admin123';
                     this.persistentStudentPasswords = data.studentPasswords || {};
                     this.isLive = true;
+
+                    // Update document title for better sharing visibility
+                    document.title = `${this.electionName} - SafeVote`;
+
                     if (window.app) window.app.refreshUI();
                 } else {
                     setDoc(doc(db, p.config, 'main'), { status: 'NOT_STARTED', adminKey: 'admin123', electionName: 'Student Council Election', studentPasswords: {} });
