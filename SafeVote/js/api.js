@@ -158,13 +158,27 @@ export class VotingAPI {
     }
 
     async addStudent(regNo, name, password) {
-        const res = await fetch(`${this.baseUrl}/api/students/add`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ regNo: parseInt(regNo), name, password })
-        });
-        await this.syncData();
-        return res.ok;
+        try {
+            const parsedRegNo = parseInt(regNo);
+            if (isNaN(parsedRegNo)) throw new Error("Roll Number must be numeric");
+
+            const res = await fetch(`${this.baseUrl}/api/students/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ regNo: parsedRegNo, name, password })
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || "Failed to add student");
+            }
+
+            await this.syncData();
+            return { success: true };
+        } catch (e) {
+            console.error("Add Student Error:", e);
+            return { success: false, message: e.message };
+        }
     }
 
     async deleteStudent(id) {

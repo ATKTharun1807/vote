@@ -182,7 +182,14 @@ export class App {
         const badge = document.getElementById('sync-badge');
         if (badge) badge.classList.toggle('hidden', !api.isLive);
 
-        if (this.role) this.renderContent();
+        // Prevent full re-render if user is typing or if any modal is open
+        const activeEl = document.activeElement;
+        const isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+        const modalVisible = !document.getElementById('modal-overlay').classList.contains('hidden');
+
+        if (this.role && !isTyping && !modalVisible) {
+            this.renderContent();
+        }
 
         // Update Election Name on Home screen if active
         const h1 = document.getElementById('election-title-display');
@@ -365,7 +372,7 @@ export class App {
                                     <span style="background:var(--primary-light); color:var(--primary); padding:0.25rem 0.75rem; border-radius:12px; font-weight:900">${c.votes}</span>
                                 </td>
                                 <td style="text-align:right">
-                                    <button onclick="api.deleteCandidate('${c.id || c._id}')" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer">REMOVE</button>
+                                    <button onclick="window.app.handleDeleteCandidate('${c.id || c._id}', '${c.name.replace(/'/g, "\\'")}')" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer">REMOVE</button>
                                 </td>
                             </tr>
                         `).join('')}
@@ -381,11 +388,11 @@ export class App {
                 <div class="grid-form">
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Full Name</label>
-                        <input id="cn" class="form-input" placeholder="e.g. John Doe" autocomplete="off">
+                        <input id="cn" class="form-input" placeholder="e.g. John Doe" autocomplete="off" onkeyup="if(event.key==='Enter') window.app.handleAdd()">
                     </div>
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Group / Party</label>
-                        <input id="cp" class="form-input" placeholder="e.g. Independent" autocomplete="off">
+                        <input id="cp" class="form-input" placeholder="e.g. Independent" autocomplete="off" onkeyup="if(event.key==='Enter') window.app.handleAdd()">
                     </div>
                     <button id="save-btn" onclick="window.app.handleAdd()" class="btn-primary-custom" style="padding: 1rem 2rem; width:100%">ADD TO LIST</button>
                 </div>
@@ -442,7 +449,7 @@ export class App {
                                     </span>
                                 </td>
                                 <td style="text-align:right">
-                                    <button onclick="api.deleteStudent('${s._id}')" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer">REMOVE</button>
+                                    <button onclick="window.app.handleDeleteStudent('${s._id}', '${s.name.replace(/'/g, "\\'")}')" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer">REMOVE</button>
                                 </td>
                             </tr>
                         `).join('')}
@@ -458,15 +465,15 @@ export class App {
                 <div class="grid-form" style="grid-template-columns: 1fr 1fr 1fr auto;">
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Full Name</label>
-                        <input id="sn" class="form-input" placeholder="e.g. Alice Smith" autocomplete="off">
+                        <input id="sn" class="form-input" placeholder="e.g. Alice Smith" autocomplete="off" onkeyup="if(event.key==='Enter') window.app.handleAddStudent()">
                     </div>
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Roll Number</label>
-                        <input id="sr" class="form-input" placeholder="e.g. 714023..." autocomplete="off">
+                        <input id="sr" class="form-input" placeholder="e.g. 714023..." autocomplete="off" onkeyup="if(event.key==='Enter') window.app.handleAddStudent()">
                     </div>
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Password</label>
-                        <input id="sp" class="form-input" placeholder="Default: atkboss" autocomplete="off">
+                        <input id="sp" class="form-input" placeholder="Default: atkboss" autocomplete="off" onkeyup="if(event.key==='Enter') window.app.handleAddStudent()">
                     </div>
                     <button onclick="window.app.handleAddStudent()" class="btn-primary-custom" style="padding: 1rem 2rem;">ADD STUDENT</button>
                 </div>
@@ -505,24 +512,51 @@ export class App {
         this.renderContent();
     }
 
-    handleAddStudent() {
+    async handleAddStudent() {
         const n = document.getElementById('sn').value.trim();
         const r = document.getElementById('sr').value.trim();
         const p = document.getElementById('sp').value.trim();
 
         if (!n || !r) return this.showToast("Name and Roll No required", "error");
 
-        api.addStudent(r, n, p).then(() => {
+        const btn = document.querySelector('button[onclick*="handleAddStudent"]');
+        if (btn) btn.disabled = true;
+
+        const res = await api.addStudent(r, n, p);
+
+        if (res.success) {
             this.showToast("Student Registered!");
             this.renderContent();
-            document.getElementById('sn').value = '';
-            document.getElementById('sr').value = '';
-            document.getElementById('sp').value = '';
-        }).catch(err => {
-            this.showToast("Error: " + err.message, "error");
-        });
+            // Inputs are cleared by re-render, but manually clearing just in case
+            const sn = document.getElementById('sn');
+            const sr = document.getElementById('sr');
+            const sp = document.getElementById('sp');
+            if (sn) sn.value = '';
+            if (sr) sr.value = '';
+            if (sp) sp.value = '';
+        } else {
+            this.showToast(res.message || "Failed to add student", "error");
+        }
+
+        if (btn) btn.disabled = false;
     }
 
+
+    async handleDeleteStudent(id, name) {
+        if (confirm(`Are you sure you want to remove student: ${name}?`)) {
+            await api.deleteStudent(id);
+            this.showToast(`Student ${name} removed`);
+            this.renderContent();
+        }
+    }
+
+    async handleDeleteCandidate(id, name) {
+        if (confirm(`Are you sure you want to remove candidate: ${name}?`)) {
+            await api.deleteCandidate(id);
+            this.showToast(`Candidate ${name} removed`);
+            this.renderContent();
+        }
+    }
 
     handleUpdateName() {
         const name = document.getElementById('election-name-input').value.trim();
