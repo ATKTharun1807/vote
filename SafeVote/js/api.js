@@ -1,13 +1,22 @@
 // MongoDB Atlas / NeDB API Provider for SafeVote
 export class VotingAPI {
     constructor() {
-        // Smart Base URL: If we're on a different local port (like Live Server), 
-        // default to the Node server's port 8081. Otherwise use relative paths.
-        this.baseUrl = '';
+        // --- PRODUCTION CONFIGURATION ---
+        // 1. Host your server.js on Render.com or Railway.app
+        // 2. Paste your cloud server URL here (e.g., 'https://your-app.onrender.com')
+        this.productionUrl = '';
+
+        this.baseUrl = this.productionUrl;
+
+        // Auto-detect Localhost
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             if (window.location.port !== '8081') {
                 this.baseUrl = 'http://localhost:8081';
+            } else {
+                this.baseUrl = ''; // Same origin if running on 8081
             }
+        } else if (!this.productionUrl) {
+            console.error("🚀 CLOUD DEPLOYMENT DETECTED: You must host your server.js and set this.productionUrl in js/api.js");
         }
 
         this.electionName = 'Student Council Election';
@@ -121,10 +130,14 @@ export class VotingAPI {
 
     async castVote(vid, cid) {
         const last = this.localBlockchain[this.localBlockchain.length - 1] || { hash: "0", index: -1 };
+
+        // Hash the voter ID for the ledger privacy
+        const voterHash = await this.hashID(vid.toString());
+
         const block = {
             index: last.index + 1,
             timestamp: new Date().toISOString(),
-            data: { voterHash: vid, candidateId: cid },
+            data: { voterHash: voterHash, candidateId: cid },
             previousHash: last.hash,
             hash: Math.random().toString(36).substring(2, 12)
         };
@@ -140,6 +153,15 @@ export class VotingAPI {
         } catch (e) {
             return { success: false, msg: "Server error" };
         }
+    }
+
+    async hashID(id) {
+        // Simple but secure enough hashing using SubtleCrypto
+        const msgUint8 = new TextEncoder().encode(id + "safevote_salt_2024");
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return hashHex.substring(0, 20); // Show partial hash
     }
 
     async updateStatus(s) {

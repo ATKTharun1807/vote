@@ -207,8 +207,12 @@ app.delete('/api/candidates/:id', async (req, res) => {
 app.post('/api/vote', async (req, res) => {
     const { regNo, candidateId, block } = req.body;
     try {
-        const student = await Student.findOne({ regNo });
+        const config = await Config.findOne({ type: 'main' });
+        if (!config || config.electionStatus !== 'ONGOING') {
+            return res.status(400).json({ error: "Election is not active (Paused or Ended)" });
+        }
 
+        const student = await Student.findOne({ regNo });
         if (!student || student.hasVoted) {
             return res.status(400).json({ error: "Already voted or invalid student" });
         }

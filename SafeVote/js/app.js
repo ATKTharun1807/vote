@@ -159,6 +159,12 @@ export class App {
         if (tabId === 'results' && this.role !== 'admin' && api.electionStatus !== 'ENDED') {
             return this.showToast("Results available after election ends", "error");
         }
+
+        // Don't switch to vote tab if results are being shown or if election hasn't started and user is voter
+        if (tabId === 'vote' && this.role === 'voter' && (api.electionStatus === 'NOT_STARTED' || api.electionStatus === 'WAIT')) {
+            // Allow switching to vote tab but it will show "Waiting" message
+        }
+
         this.activeTab = tabId;
 
         const tabs = ['vote', 'admin', 'students', 'results', 'blockchain', 'guide'];
@@ -180,7 +186,16 @@ export class App {
 
     refreshUI() {
         const badge = document.getElementById('sync-badge');
-        if (badge) badge.classList.toggle('hidden', !api.isLive);
+        const isOngoing = api.electionStatus === 'ONGOING';
+
+        if (badge) {
+            badge.classList.toggle('hidden', !api.isLive || !isOngoing);
+            if (isOngoing) {
+                badge.style.background = 'rgba(37,99,235,0.05)';
+                badge.style.color = '#2563eb';
+                badge.innerHTML = `<i data-lucide="refresh-cw" style="width:12px; height:12px; animation: spin 2s linear infinite;"></i> LIVE SYNC`;
+            }
+        }
 
         // Prevent full re-render if user is typing or if any modal is open
         const activeEl = document.activeElement;
@@ -227,6 +242,7 @@ export class App {
 
     renderVoteTab(container) {
         const hasVoted = api.voterIds.includes(this.currentUser.regNo.toString());
+        const status = api.electionStatus;
 
         let html = `
             <div class="card-custom bg-light mb-4" style="border:none; background:var(--bg-main); padding:1.5rem">
@@ -234,7 +250,7 @@ export class App {
                     <div>
                         <h2 style="margin:0; color:var(--primary)">${api.electionName}</h2>
                         <h4 style="margin:0.5rem 0 0; color:var(--text-main)">Welcome, ${this.currentUser.name}</h4>
-                        <p style="margin:0.5rem 0 0; font-size:0.8rem; color:var(--text-muted)">Status: <span style="color:var(--primary); font-weight:800">${api.electionStatus}</span></p>
+                        <p style="margin:0.5rem 0 0; font-size:0.8rem; color:var(--text-muted)">Status: <span style="color:var(--primary); font-weight:800">${status}</span></p>
                     </div>
                     <div style="text-align:right">
                          <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted)">ID: ${this.currentUser.regNo}</div>
@@ -244,7 +260,24 @@ export class App {
             </div>
         `;
 
-        if (api.electionStatus === 'ENDED') {
+        if (status === 'NOT_STARTED' || status === 'WAIT') {
+            html += `
+                <div class="card-custom mb-5" style="text-align:center; padding:5rem 2rem; background:var(--card-bg);">
+                    <div style="background:var(--primary-light); width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 2rem;">
+                        <i data-lucide="clock" size="40" style="color:var(--primary)"></i>
+                    </div>
+                    <h2 style="margin:0; font-size:2rem; font-weight:900;">${status === 'WAIT' ? 'Election Paused' : 'Polling Pending'}</h2>
+                    <p style="color:var(--text-muted); margin-top:1rem; max-width:400px; margin-left:auto; margin-right:auto;">
+                        The election has not officially started. Please wait for the administrator to open the polls.
+                    </p>
+                </div>
+             `;
+            container.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+            return;
+        }
+
+        if (status === 'ENDED') {
             const winner = this.getWinner();
             html += `
                 <div class="card-custom mb-5" style="border:none; background:linear-gradient(135deg, #059669 0%, #10b981 100%); color:white; text-align:center; padding:2rem">
@@ -272,22 +305,30 @@ export class App {
 
         const filtered = api.localCandidates.filter(c => c.name.toLowerCase().includes(this.searchQuery.toLowerCase()));
         filtered.forEach(c => {
-            const isEnded = api.electionStatus === 'ENDED';
-            // Disabled only if ended. If ongoing, keep enabled even if voted to show toast.
-            const disabled = isEnded;
+            const isEnded = status === 'ENDED';
+            const isAdmin = this.role === 'admin';
+            const disabled = isEnded || isAdmin;
+
             html += `
                 <div class="card-custom" style="text-align:center">
                     <h3 style="margin:0; color:var(--text-main)">${c.name}</h3>
                     <p style="color:var(--text-muted); font-size:0.9rem">${c.party}</p>
-                    <button onclick="window.app.castVote('${c.id}', this)" ${disabled ? 'disabled' : ''} class="btn-primary-custom" style="width:100%; margin-top:1rem; ${hasVoted ? 'opacity:0.7' : ''}">
-                        ${hasVoted ? 'VOTED' : (isEnded ? 'ENDED' : 'VOTE')}
-                    </button>
+                    ${isAdmin ? `
+                        <button disabled class="btn-primary-custom" style="width:100%; margin-top:1rem; opacity:0.5; background:var(--text-muted)">
+                            ADMIN VIEW
+                        </button>
+                    ` : `
+                        <button onclick="window.app.castVote('${c.id}', this)" ${disabled ? 'disabled' : ''} class="btn-primary-custom" style="width:100%; margin-top:1rem; ${hasVoted ? 'opacity:0.7' : ''}">
+                            ${hasVoted ? 'VOTED' : (isEnded ? 'ENDED' : 'VOTE')}
+                        </button>
+                    `}
                 </div>
             `;
         });
 
         html += `</div>`;
         container.innerHTML = html;
+        if (window.lucide) window.lucide.createIcons();
     }
 
     renderAdminTab(container) {
@@ -312,9 +353,10 @@ export class App {
                 <div class="feature-box">
                     <div class="feature-title">Election Status</div>
                     <div style="font-size:1.5rem; font-weight:900; color:var(--primary); margin:0.5rem 0">${api.electionStatus}</div>
-                    <div style="display:flex; gap:1rem">
-                        <button onclick="api.updateStatus('ONGOING')" class="btn-primary-custom" style="flex:1">Start</button>
-                        <button onclick="api.updateStatus('ENDED')" class="btn-primary-custom" style="flex:1; background:#ef4444">Stop</button>
+                    <div style="display:flex; gap:0.5rem">
+                        <button onclick="api.updateStatus('ONGOING')" class="btn-primary-custom" style="flex:1; padding:0.5rem; font-size:0.8rem;">Start</button>
+                        <button onclick="api.updateStatus('WAIT')" class="btn-primary-custom" style="flex:1; padding:0.5rem; font-size:0.8rem; background:#64748b">Wait</button>
+                        <button onclick="api.updateStatus('ENDED')" class="btn-primary-custom" style="flex:1; padding:0.5rem; font-size:0.8rem; background:#ef4444">Stop</button>
                     </div>
                 </div>
                 <div class="feature-box" style="border-color: #e0f2fe; background: #f0f9ff;">
@@ -750,17 +792,30 @@ export class App {
 
     renderBlockchainTab(container) {
         let html = `<h2>Digital Ledger (Blockchain)</h2><p style="color:var(--text-muted)">${api.electionName} Immutable Logs</p><div style="border-left:4px solid var(--primary); padding-left:2rem; margin-top:2rem">`;
+
+        if (api.localBlockchain.length === 0) {
+            html += `<p style="padding:2rem; color:var(--text-muted)">No blocks recorded yet. Cast a vote to see the ledger.</p>`;
+        }
+
         api.localBlockchain.forEach(b => {
+            const voterHash = b.data?.voterHash || 'N/A';
             html += `
                 <div class="card-custom mb-3" style="padding:1.5rem">
-                    <div style="font-size:0.7rem; color:var(--text-muted)">${new Date(b.timestamp).toLocaleString()}</div>
-                    <div style="font-family:monospace; margin-top:0.5rem; word-break:break-all; color:var(--text-main)">Hash: ${b.hash}</div>
-                    <div style="font-size:0.8rem; margin-top:0.5rem; color:var(--text-muted)">Previous: ${b.previousHash}</div>
+                    <div class="flex-between">
+                        <div style="font-size:0.7rem; color:var(--text-muted)">BLOCK #${b.index} | ${new Date(b.timestamp).toLocaleString()}</div>
+                        <div style="background:var(--primary-light); color:var(--primary); padding:2px 8px; border-radius:99px; font-size:0.6rem; font-weight:800; text-transform:uppercase;">Verified Block</div>
+                    </div>
+                    <div style="margin:1rem 0; font-family:monospace; font-size:0.85rem;">
+                        <div style="color:var(--primary); font-weight:800; margin-bottom:0.5rem">Voter (Hashed): <span style="color:var(--text-main); word-break:break-all;">${voterHash}</span></div>
+                        <div style="color:var(--text-muted);">Timestamp Hash: ${b.hash}</div>
+                        <div style="color:var(--text-muted); font-size:0.7rem; margin-top:0.25rem">Digital Chain: ${b.previousHash}</div>
+                    </div>
                 </div>
             `;
         });
         html += `</div>`;
         container.innerHTML = html;
+        if (window.lucide) window.lucide.createIcons();
     }
 
     async castVote(cid, btn) {
