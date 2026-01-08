@@ -9,6 +9,7 @@ export class App {
         this.searchQuery = "";
         this.theme = localStorage.getItem('safevote-theme') || 'light';
         this.isMenuOpen = false;
+        this.studentLinkMode = false;
     }
 
     async init() {
@@ -22,8 +23,9 @@ export class App {
         // Handle URL parameters for direct linking
         const params = new URLSearchParams(window.location.search);
         const view = params.get('view');
+        this.studentLinkMode = (view === 'student');
 
-        if (view === 'student') {
+        if (this.studentLinkMode) {
             this.showView('student-login');
         } else if (view === 'admin') {
             this.showView('admin-login');
@@ -55,10 +57,19 @@ export class App {
         if (id === 'home-view') {
             const h1 = document.getElementById('election-title-display');
             if (h1) h1.textContent = api.electionName;
+
+            // Hide Admin Portal button if in student link mode
+            const adminBtn = document.getElementById('admin-portal-btn');
+            if (adminBtn) {
+                adminBtn.style.display = this.studentLinkMode ? 'none' : 'block';
+            }
         }
     }
 
     showView(id) {
+        if (id === 'admin-login' && this.studentLinkMode) {
+            return this.showToast("Access Denied: Admin portal is disabled for students.", "error");
+        }
         this.toggleView(id + '-view');
     }
 
@@ -178,14 +189,13 @@ export class App {
         tabs.forEach(t => {
             const el = document.getElementById(`tab-${t}`);
             if (el) {
-                el.classList.remove('active', 'active-guide');
+                el.classList.remove('active', 'active-vote', 'active-admin', 'active-students', 'active-results', 'active-blockchain', 'active-guide');
             }
         });
 
         const activeTabEl = document.getElementById(`tab-${tabId}`);
         if (activeTabEl) {
-            if (tabId === 'guide') activeTabEl.classList.add('active-guide');
-            else activeTabEl.classList.add('active');
+            activeTabEl.classList.add(`active-${tabId}`);
         }
 
         this.renderContent();
@@ -231,6 +241,11 @@ export class App {
         if (studentsTab) studentsTab.classList.toggle('hidden', this.role !== 'admin');
         if (resultsTab) resultsTab.classList.toggle('hidden', this.role !== 'admin' && api.electionStatus !== 'ENDED');
 
+        // Capture focus state for search bar preservation
+        const activeEl = document.activeElement;
+        const isSearchFocused = activeEl && activeEl.id === 'candidate-search';
+        const selectionStart = isSearchFocused ? activeEl.selectionStart : null;
+
         if (this.activeTab === 'vote') this.renderVoteTab(container);
         else if (this.activeTab === 'admin') this.renderAdminTab(container);
         else if (this.activeTab === 'students') this.renderStudentsTab(container);
@@ -239,6 +254,15 @@ export class App {
         else if (this.activeTab === 'guide') this.renderGuideTab(container);
 
         if (window.lucide) window.lucide.createIcons();
+
+        // Restore focus and cursor position for search bar
+        if (isSearchFocused) {
+            const newSearch = document.getElementById('candidate-search');
+            if (newSearch) {
+                newSearch.focus();
+                newSearch.setSelectionRange(selectionStart, selectionStart);
+            }
+        }
     }
 
     getWinner() {
@@ -305,7 +329,7 @@ export class App {
 
         html += `
             <div class="mb-4">
-                <input type="text" oninput="window.app.searchQuery=this.value;window.app.renderContent()" placeholder="Search candidates..." class="form-input" style="max-width:400px; width:100%" value="${this.searchQuery}">
+                <input type="text" id="candidate-search" oninput="window.app.searchQuery=this.value;window.app.renderContent()" placeholder="Search candidates..." class="form-input" style="max-width:400px; width:100%" value="${this.searchQuery}">
             </div>
             <div class="grid-responsive">
         `;
