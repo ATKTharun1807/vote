@@ -1,13 +1,21 @@
 // MongoDB Atlas / NeDB API Provider for SafeVote
 export class VotingAPI {
     constructor() {
-        this.baseUrl = ''; // Same origin
+        // Smart Base URL: If we're on a different local port (like Live Server), 
+        // default to the Node server's port 8081. Otherwise use relative paths.
+        this.baseUrl = '';
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            if (window.location.port !== '8081') {
+                this.baseUrl = 'http://localhost:8081';
+            }
+        }
+
         this.electionName = 'Student Council Election';
         this.electionStatus = 'NOT_STARTED';
         this.adminKey = 'admin123';
         this.localCandidates = [];
         this.localBlockchain = [];
-        this.localStudents = []; // List of all students
+        this.localStudents = [];
         this.totalVotersCount = 0;
         this.voterIds = [];
         this.isLive = false;
@@ -16,15 +24,18 @@ export class VotingAPI {
     }
 
     async initAuth() {
-        // For NeDB version, we just sync immediately
-        await this.syncData();
-        return true;
+        try {
+            await this.syncData();
+            return this.isLive;
+        } catch (e) {
+            return false;
+        }
     }
 
     async syncData() {
         try {
             const res = await fetch(`${this.baseUrl}/api/sync`);
-            if (!res.ok) throw new Error("Sync failed");
+            if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
             const data = await res.json();
 
             this.localCandidates = data.candidates || [];
@@ -52,6 +63,16 @@ export class VotingAPI {
         } catch (e) {
             console.error("Sync Error:", e);
             this.isLive = false;
+
+            // Try to load from backup if server is down
+            const backup = localStorage.getItem('safevote_backup');
+            if (backup) {
+                const data = JSON.parse(backup);
+                this.localCandidates = data.candidates || [];
+                this.localStudents = data.students || [];
+                this.electionStatus = data.config?.electionStatus || 'OFFLINE';
+                if (window.app) window.app.refreshUI();
+            }
         }
     }
 
