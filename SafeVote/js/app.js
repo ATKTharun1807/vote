@@ -116,6 +116,13 @@ export class App {
     }
 
     handleAdminLogin() {
+        // Security check: If the URL indicates this is a student-only link, 
+        // prevent admin login from here.
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('view') === 'student') {
+            return this.showToast("Admin access not permitted from this link", "error");
+        }
+
         const input = document.getElementById('admin-key-input');
         const val = input.value.trim();
         if (val === api.adminKey) {
@@ -318,7 +325,7 @@ export class App {
                             ADMIN VIEW
                         </button>
                     ` : `
-                        <button onclick="window.app.castVote('${c.id}', this)" ${disabled ? 'disabled' : ''} class="btn-primary-custom" style="width:100%; margin-top:1rem; ${hasVoted ? 'opacity:0.7' : ''}">
+                        <button onclick="window.app.castVote('${c._id}', this)" ${disabled ? 'disabled' : ''} class="btn-primary-custom" style="width:100%; margin-top:1rem; ${hasVoted ? 'opacity:0.7' : ''}">
                             ${hasVoted ? 'VOTED' : (isEnded ? 'ENDED' : 'VOTE')}
                         </button>
                     `}
@@ -414,7 +421,7 @@ export class App {
                                     <span style="background:var(--primary-light); color:var(--primary); padding:0.25rem 0.75rem; border-radius:12px; font-weight:900">${c.votes}</span>
                                 </td>
                                 <td style="text-align:right">
-                                    <button onclick="window.app.handleDeleteCandidate('${c.id || c._id}', '${c.name.replace(/'/g, "\\'")}')" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer">REMOVE</button>
+                                    <button onclick="window.app.handleDeleteCandidate('${c._id}', '${c.name.replace(/'/g, "\\'")}')" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer">REMOVE</button>
                                 </td>
                             </tr>
                         `).join('')}
@@ -767,7 +774,7 @@ export class App {
 
         html += `<div style="display:flex; flex-direction:column; gap:1.5rem">`;
         sorted.forEach((c, index) => {
-            const isWinner = api.electionStatus === 'ENDED' && c.id === winner.id;
+            const isWinner = api.electionStatus === 'ENDED' && (c._id === winner._id || c._id === winner.id);
             html += `
                 <div class="card-custom" style="display:flex; justify-content:space-between; align-items:center; ${isWinner ? 'border:2px solid #10b981; background:#f0fdf4' : ''}">
                     <div style="display:flex; align-items:center; gap:1.5rem">

@@ -206,24 +206,34 @@ app.delete('/api/candidates/:id', async (req, res) => {
 // Cast Vote
 app.post('/api/vote', async (req, res) => {
     const { regNo, candidateId, block } = req.body;
+    console.log(`🗳️ Vote Attempt: Student ${regNo} for Candidate ${candidateId}`);
+
     try {
         const config = await Config.findOne({ type: 'main' });
         if (!config || config.electionStatus !== 'ONGOING') {
-            return res.status(400).json({ error: "Election is not active (Paused or Ended)" });
+            return res.status(400).json({ error: "Election is not active. Status: " + (config ? config.electionStatus : 'Unknown') });
         }
 
         const student = await Student.findOne({ regNo });
-        if (!student || student.hasVoted) {
-            return res.status(400).json({ error: "Already voted or invalid student" });
-        }
+        if (!student) return res.status(404).json({ error: "Student not found in database" });
+        if (student.hasVoted) return res.status(400).json({ error: "Student has already cast their vote" });
 
+        const candidate = await Candidate.findById(candidateId);
+        if (!candidate) return res.status(404).json({ error: "Candidate not found" });
+
+        // Atomic update session
         await Student.updateOne({ regNo }, { $set: { hasVoted: true } });
         await Candidate.findByIdAndUpdate(candidateId, { $inc: { votes: 1 } });
-        await Blockchain.create(block);
 
+        // Ensure data is saved in Blockchain
+        const newBlock = new Blockchain(block);
+        await newBlock.save();
+
+        console.log(`✅ Vote Recorded: ${student.name} -> ${candidate.name}`);
         res.sendStatus(200);
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        console.error("❌ Vote Process Error:", e.message);
+        res.status(500).json({ error: "Internal Server Error: " + e.message });
     }
 });
 
