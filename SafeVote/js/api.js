@@ -10,10 +10,14 @@ export class VotingAPI {
 
         // Auto-detect Localhost or Local Network
         if (!this.productionUrl) {
-            if (window.location.port !== '8081') {
+            const isLocal = window.location.hostname === 'localhost' ||
+                window.location.hostname === '127.0.0.1' ||
+                window.location.hostname.includes('192.168.');
+
+            if (isLocal && window.location.port !== '8081') {
                 this.baseUrl = `${window.location.protocol}//${window.location.hostname}:8081`;
             } else {
-                this.baseUrl = ''; // Same origin
+                this.baseUrl = ''; // Same origin (e.g. Render/Production)
             }
         }
 

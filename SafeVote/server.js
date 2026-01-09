@@ -137,9 +137,21 @@ app.post('/api/students/verify', async (req, res) => {
 app.post('/api/students/reset-password', async (req, res) => {
     const { regNo, newPassword } = req.body;
     try {
-        await Student.updateOne({ regNo }, { $set: { password: newPassword } });
+        console.log(`🔑 Attempting password reset for ID: ${regNo}`);
+        const reg = parseInt(regNo);
+        if (isNaN(reg)) throw new Error("Invalid Registration Number");
+
+        const result = await Student.updateOne({ regNo: reg }, { $set: { password: newPassword } });
+
+        if (result.matchedCount === 0) {
+            console.warn(`⚠️ Student ${regNo} not found in 'students' collection.`);
+            return res.status(404).json({ error: "Student not found in database." });
+        }
+
+        console.log(`✅ Password updated successfully for ${regNo}`);
         res.sendStatus(200);
     } catch (e) {
+        console.error("❌ Reset Password Error:", e.message);
         res.status(500).send(e.message);
     }
 });
