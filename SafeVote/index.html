@@ -29,6 +29,29 @@
 
     <link rel="stylesheet" href="css/style.css">
     <link rel="icon" type="image/png" href="assets/logo.png">
+
+    <script>
+        // Immediate Theme Application (Prevents White Flash)
+        (function () {
+            const savedTheme = localStorage.getItem('safevote-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+
+        // Safe Proxy for early clicks before app.js (module) loads
+        window.app = new Proxy({}, {
+            get: (target, prop) => {
+                return (...args) => {
+                    console.log(`[SafeVote] Early call to app.${prop} - Waiting for initialization...`);
+                    // If it's a theme call, we can handle it immediately
+                    if (prop === 'setTheme') {
+                        document.documentElement.setAttribute('data-theme', args[0]);
+                        localStorage.setItem('safevote-theme', args[0]);
+                    }
+                    // The real app.js will replace window.app once loaded
+                };
+            }
+        });
+    </script>
 </head>
 
 <body>

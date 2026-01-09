@@ -8,15 +8,13 @@ export class VotingAPI {
 
         this.baseUrl = this.productionUrl;
 
-        // Auto-detect Localhost
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        // Auto-detect Localhost or Local Network
+        if (!this.productionUrl) {
             if (window.location.port !== '8081') {
-                this.baseUrl = 'http://localhost:8081';
+                this.baseUrl = `${window.location.protocol}//${window.location.hostname}:8081`;
             } else {
-                this.baseUrl = ''; // Same origin if running on 8081
+                this.baseUrl = ''; // Same origin
             }
-        } else if (!this.productionUrl) {
-            console.error("🚀 CLOUD DEPLOYMENT DETECTED: You must host your server.js and set this.productionUrl in js/api.js");
         }
 
         this.electionName = 'Student Council Election';
