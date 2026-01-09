@@ -31,13 +31,12 @@ export class App {
         else if (yearCode === "25") year = "1st Year";
         else if (yearCode === "22") year = "4th Year";
 
-        let dept = "";
-        if (deptCode === "107") dept = "Cyber Security";
+        let dept = "OTHERS";
+        if (deptCode === "107") dept = "CYBER SECURITY";
+        else if (deptCode === "202") dept = "AIML";
 
         if (year && dept) return `${dept} | ${year}`;
-        if (dept) return dept;
-        if (year) return year;
-        return null;
+        return dept || year || "OTHERS";
     }
 
     async init() {
@@ -527,7 +526,14 @@ export class App {
 
         // Group students by department
         api.localStudents.forEach(s => {
-            const dept = s.department || "CYBER SECURITY";
+            let dept = s.department;
+            if (!dept) {
+                const sId = s.regNo.toString();
+                const dCode = sId.substring(6, 9);
+                if (dCode === "107") dept = "CYBER SECURITY";
+                else if (dCode === "202") dept = "AIML";
+                else dept = "CYBER SECURITY"; // Default fallback
+            }
             if (!studentsByDept[dept]) studentsByDept[dept] = [];
             studentsByDept[dept].push(s);
         });
@@ -664,9 +670,10 @@ export class App {
         for (const s of STUDENT_DATABASE) {
             const exists = api.localStudents.find(ls => ls.regNo === s.regNo);
             if (!exists) {
-                let dept = "CYBER SECURITY";
+                let dept = "OTHERS";
                 const deptCode = s.regNo.toString().substring(6, 9);
                 if (deptCode === "107") dept = "CYBER SECURITY";
+                else if (deptCode === "202") dept = "AIML";
 
                 await api.addStudent(s.regNo, s.name, "atkboss", dept);
                 count++;
@@ -690,6 +697,7 @@ export class App {
         let department = "CYBER SECURITY";
         const deptCode = sr_val.substring(6, 9);
         if (deptCode === "107") department = "CYBER SECURITY";
+        else if (deptCode === "202") department = "AIML";
 
         const res = await api.addStudent(sr_val, sn_val, sp_val, department);
 
