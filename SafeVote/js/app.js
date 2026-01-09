@@ -10,6 +10,34 @@ export class App {
         this.theme = localStorage.getItem('safevote-theme') || 'light';
         this.isMenuOpen = false;
         this.studentLinkMode = false;
+        this.expandedDepts = {};
+    }
+
+    toggleDept(dept) {
+        this.expandedDepts[dept] = !this.expandedDepts[dept];
+        this.renderContent();
+    }
+
+    parseStudentId(id) {
+        if (!id || id === "N/A") return null;
+        const sId = id.toString();
+        // 7140 23 107 061
+        const yearCode = sId.substring(4, 6);
+        const deptCode = sId.substring(6, 9);
+
+        let year = "";
+        if (yearCode === "23") year = "3rd Year";
+        else if (yearCode === "24") year = "2nd Year";
+        else if (yearCode === "25") year = "1st Year";
+        else if (yearCode === "22") year = "4th Year";
+
+        let dept = "";
+        if (deptCode === "107") dept = "Cyber Security";
+
+        if (year && dept) return `${dept} | ${year}`;
+        if (dept) return dept;
+        if (year) return year;
+        return null;
     }
 
     async init() {
@@ -155,7 +183,9 @@ export class App {
         document.getElementById('auth-section').classList.remove('hidden');
         document.getElementById('home-nav').classList.add('hidden');
         document.getElementById('nav-username').textContent = this.currentUser.name;
-        document.getElementById('nav-role').textContent = this.role === 'admin' ? "Admin Access" : `ID: ${this.currentUser.regNo}`;
+        const details = this.role === 'admin' ? "Admin Access" : `ID: ${this.currentUser.regNo}`;
+        const studentInfo = this.role === 'admin' ? null : this.parseStudentId(this.currentUser.regNo);
+        document.getElementById('nav-role').textContent = studentInfo ? `${details} (${studentInfo})` : details;
     }
 
     logout() {
@@ -210,22 +240,32 @@ export class App {
             if (isOngoing) {
                 badge.style.background = 'rgba(37,99,235,0.05)';
                 badge.style.color = '#2563eb';
-                badge.innerHTML = `<i data-lucide="refresh-cw" style="width:12px; height:12px; animation: spin 2s linear infinite;"></i> LIVE SYNC`;
+                const currentBadge = badge.innerHTML;
+                const newBadge = `<i data-lucide="refresh-cw" style="width:12px; height:12px; animation: spin 2s linear infinite;"></i> LIVE SYNC`;
+                if (currentBadge !== newBadge) badge.innerHTML = newBadge;
             }
         }
 
         // Prevent full re-render if user is typing or if any modal is open
         const activeEl = document.activeElement;
         const isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
-        const modalVisible = !document.getElementById('modal-overlay').classList.contains('hidden');
+        const overlay = document.getElementById('modal-overlay');
+        const modalVisible = overlay && !overlay.classList.contains('hidden');
 
         if (this.role && !isTyping && !modalVisible) {
-            this.renderContent();
+            // Only auto-refresh for public displays (Vote/Results/Blockchain)
+            // Management tabs (Admin/Students) shouldn't flicker while being used
+            const liveTabs = ['vote', 'results', 'blockchain'];
+            if (liveTabs.includes(this.activeTab)) {
+                this.renderContent();
+            }
         }
 
         // Update Election Name on Home screen if active
         const h1 = document.getElementById('election-title-display');
-        if (h1 && !this.role) h1.textContent = api.electionName;
+        if (h1 && !this.role && h1.textContent !== api.electionName) {
+            h1.textContent = api.electionName;
+        }
     }
 
     renderContent() {
@@ -280,12 +320,16 @@ export class App {
                 <div class="flex-between">
                     <div>
                         <h2 style="margin:0; color:var(--primary)">${api.electionName}</h2>
-                        <h4 style="margin:0.5rem 0 0; color:var(--text-main)">Welcome, ${this.currentUser.name}</h4>
+                        <h4 style="margin:0.5rem 0 0; color:var(--text-main)">Welcome, ${this.currentUser.name} 
+                            ${this.role !== 'admin' ? `<span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal; margin-left:0.5rem">(${this.parseStudentId(this.currentUser.regNo)})</span>` : ''}
+                        </h4>
                         <p style="margin:0.5rem 0 0; font-size:0.8rem; color:var(--text-muted)">Status: <span style="color:var(--primary); font-weight:800">${status}</span></p>
                     </div>
                     <div style="text-align:right">
-                         <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted)">ID: ${this.currentUser.regNo}</div>
-                         <button onclick="window.app.handleResetPassword()" class="btn-primary-custom" style="margin-top:0.75rem; padding:0.4rem 0.8rem; font-size:0.7rem; background:var(--text-muted); color:white;">RESET PASSWORD</button>
+                         ${this.role !== 'admin' ? `
+                            <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted)">ID: ${this.currentUser.regNo}</div>
+                            <button onclick="window.app.handleResetPassword()" class="btn-primary-custom" style="margin-top:0.75rem; padding:0.4rem 0.8rem; font-size:0.7rem; background:var(--text-muted); color:white;">RESET PASSWORD</button>
+                         ` : ''}
                     </div>
                 </div>
             </div>
@@ -479,55 +523,97 @@ export class App {
     }
 
     renderStudentsTab(container) {
-        const sortedStudents = [...api.localStudents].sort((a, b) => a.name.localeCompare(b.name));
+        const studentsByDept = {};
+
+        // Group students by department
+        api.localStudents.forEach(s => {
+            const dept = s.department || "CYBER SECURITY";
+            if (!studentsByDept[dept]) studentsByDept[dept] = [];
+            studentsByDept[dept].push(s);
+        });
+
+        const departments = Object.keys(studentsByDept).sort();
 
         let html = `
             <div style="margin-bottom:2rem; display:flex; justify-content:space-between; align-items:center;">
                 <div>
-                    <h2 style="margin:0">Registered Students</h2>
-                    <p style="color:var(--text-muted)">Manage voter database and security credentials.</p>
+                    <h2 style="margin:0">DEPARTMENT Folders</h2>
+                    <p style="color:var(--text-muted)">Manage voter database grouped by department.</p>
                 </div>
                 <div style="display:flex; gap:1rem; align-items:center;">
                     <button onclick="window.app.handleImportStudents()" class="btn-primary-custom" style="background:var(--card-bg); color:var(--text-main); border:1px solid var(--card-border); padding:0.5rem 1rem; font-size:0.75rem;">IMPORT ALL FROM DB</button>
                     <div style="background:var(--primary-light); color:var(--primary); padding: 0.5rem 1rem; border-radius: 99px; font-weight: 800;">
-                        ${api.localStudents.length} Students
+                        ${api.localStudents.length} Total Students
                     </div>
                 </div>
             </div>
 
-            <div class="card-custom" style="padding: 0; overflow: hidden; margin-bottom: 3rem;">
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Student Name</th>
-                            <th>Roll / Reg No</th>
-                            <th>Password</th>
-                            <th style="text-align:center">Status</th>
-                            <th style="text-align:right">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${sortedStudents.length === 0 ? `<tr><td colspan="5" style="text-align:center; padding:3rem; color:var(--text-muted)">No students found. Add one below.</td></tr>` : ''}
-                        ${sortedStudents.map(s => `
-                            <tr>
-                                <td><b>${s.name}</b></td>
-                                <td><code>${s.regNo}</code></td>
-                                <td style="display:flex; align-items:center; gap:0.5rem;">
-                                    <span style="font-family:monospace; background:rgba(0,0,0,0.05); padding:2px 6px; border-radius:4px;">${s.password || '********'}</span>
-                                    <button onclick="window.app.handleAdminChangePassword('${s.regNo}', '${s.name}')" style="background:none; border:none; color:var(--primary); font-size:0.6rem; font-weight:800; cursor:pointer; text-decoration:underline;">CHANGE</button>
-                                </td>
-                                <td style="text-align:center">
-                                    <span style="color:${s.hasVoted ? '#10b981' : '#f59e0b'}; font-weight:800; font-size:0.7rem; text-transform:uppercase;">
-                                        ${s.hasVoted ? 'Voted' : 'Pending'}
-                                    </span>
-                                </td>
-                                <td style="text-align:right">
-                                    <button onclick="window.app.handleDeleteStudent('${s._id}', '${s.name.replace(/'/g, "\\'")}')" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer">REMOVE</button>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+            <div class="departments-container">
+        `;
+
+        // Render each department as a "folder" / section
+        departments.forEach(dept => {
+            const students = studentsByDept[dept].sort((a, b) => a.name.localeCompare(b.name));
+            const isExpanded = this.expandedDepts[dept];
+
+            html += `
+                <div class="card-custom mb-5" style="padding: 0; overflow: hidden; border: 2px solid var(--primary-light);">
+                    <div onclick="window.app.toggleDept('${dept}')" style="padding: 1.5rem; background: var(--primary-light); display:flex; justify-content:space-between; align-items:center; cursor:pointer; transition: background 0.3s;">
+                        <div style="display:flex; align-items:center; gap:0.75rem;">
+                            <i data-lucide="${isExpanded ? 'folder-open' : 'folder'}" style="color:var(--primary)"></i>
+                            <h3 style="margin:0; color:var(--primary)">${dept}</h3>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:1rem;">
+                            <span style="background:white; color:var(--primary); padding: 0.2rem 0.6rem; border-radius: 99px; font-weight: 800; font-size: 0.8rem;">
+                                ${students.length} Students
+                            </span>
+                            <i data-lucide="${isExpanded ? 'chevron-up' : 'chevron-down'}" style="color:var(--primary); width:20px;"></i>
+                        </div>
+                    </div>
+                    
+                    ${isExpanded ? `
+                    <div class="fade-in">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Student Name</th>
+                                    <th>Roll / Reg No</th>
+                                    <th>Password</th>
+                                    <th style="text-align:center">Status</th>
+                                    <th style="text-align:right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${students.map(s => `
+                                    <tr>
+                                        <td>
+                                            <b>${s.name}</b><br>
+                                            <small style="color:var(--text-muted)">${this.parseStudentId(s.regNo) || ''}</small>
+                                        </td>
+                                        <td><code>${s.regNo}</code></td>
+                                        <td style="display:flex; align-items:center; gap:0.5rem;">
+                                            <span style="font-family:monospace; background:rgba(0,0,0,0.05); padding:2px 6px; border-radius:4px;">${s.password || '********'}</span>
+                                            <button onclick="window.app.handleAdminChangePassword('${s.regNo}', '${s.name}')" style="background:none; border:none; color:var(--primary); font-size:0.6rem; font-weight:800; cursor:pointer; text-decoration:underline;">CHANGE</button>
+                                        </td>
+                                        <td style="text-align:center">
+                                            <span style="color:${s.hasVoted ? '#10b981' : '#f59e0b'}; font-weight:800; font-size:0.7rem; text-transform:uppercase;">
+                                                ${s.hasVoted ? 'Voted' : 'Pending'}
+                                            </span>
+                                        </td>
+                                        <td style="text-align:right">
+                                            <button onclick="window.app.handleDeleteStudent('${s._id}', '${s.name.replace(/'/g, "\\'")}')" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer">REMOVE</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+
+        html += `
             </div>
 
             <div class="add-candidate-section">
@@ -553,6 +639,7 @@ export class App {
             </div>
         `;
         container.innerHTML = html;
+        if (window.lucide) window.lucide.createIcons();
     }
 
     async handleAdminChangePassword(regNo, studentName) {
@@ -577,7 +664,11 @@ export class App {
         for (const s of STUDENT_DATABASE) {
             const exists = api.localStudents.find(ls => ls.regNo === s.regNo);
             if (!exists) {
-                await api.addStudent(s.regNo, s.name, "atkboss");
+                let dept = "CYBER SECURITY";
+                const deptCode = s.regNo.toString().substring(6, 9);
+                if (deptCode === "107") dept = "CYBER SECURITY";
+
+                await api.addStudent(s.regNo, s.name, "atkboss", dept);
                 count++;
             }
         }
@@ -586,16 +677,21 @@ export class App {
     }
 
     async handleAddStudent() {
-        const n = document.getElementById('sn').value.trim();
-        const r = document.getElementById('sr').value.trim();
-        const p = document.getElementById('sp').value.trim();
+        const sn_val = document.getElementById('sn').value.trim();
+        const sr_val = document.getElementById('sr').value.trim();
+        const sp_val = document.getElementById('sp').value.trim();
 
-        if (!n || !r) return this.showToast("Name and Roll No required", "error");
+        if (!sn_val || !sr_val) return this.showToast("Name and Roll No required", "error");
 
         const btn = document.querySelector('button[onclick*="handleAddStudent"]');
         if (btn) btn.disabled = true;
 
-        const res = await api.addStudent(r, n, p);
+        // Determine department from Roll Number
+        let department = "CYBER SECURITY";
+        const deptCode = sr_val.substring(6, 9);
+        if (deptCode === "107") department = "CYBER SECURITY";
+
+        const res = await api.addStudent(sr_val, sn_val, sp_val, department);
 
         if (res.success) {
             this.showToast("Student Registered!");

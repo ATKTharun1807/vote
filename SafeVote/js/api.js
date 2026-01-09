@@ -200,7 +200,7 @@ export class VotingAPI {
         await this.syncData();
     }
 
-    async addStudent(regNo, name, password) {
+    async addStudent(regNo, name, password, department = "CYBER SECURITY") {
         try {
             const parsedRegNo = parseInt(regNo);
             if (isNaN(parsedRegNo)) throw new Error("Roll Number must be numeric");
@@ -208,7 +208,7 @@ export class VotingAPI {
             const res = await fetch(`${this.baseUrl}/api/students/add`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ regNo: parsedRegNo, name, password })
+                body: JSON.stringify({ regNo: parsedRegNo, name, password, department })
             });
 
             if (!res.ok) {
