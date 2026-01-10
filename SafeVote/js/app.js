@@ -32,7 +32,7 @@ export class App {
         else if (yearCode === "22") year = "4th Year";
 
         let dept = "OTHERS";
-        if (deptCode === "107") dept = "CYBER SECURITY";
+        if (deptCode === "107") dept = "CYBER";
         else if (deptCode === "202") dept = "AIML";
 
         if (year && dept) return `${dept} | ${year}`;
@@ -530,9 +530,9 @@ export class App {
             if (!dept) {
                 const sId = s.regNo.toString();
                 const dCode = sId.substring(6, 9);
-                if (dCode === "107") dept = "CYBER SECURITY";
+                if (dCode === "107") dept = "CYBER";
                 else if (dCode === "202") dept = "AIML";
-                else dept = "CYBER SECURITY"; // Default fallback
+                else dept = "CYBER"; // Default fallback
             }
             if (!studentsByDept[dept]) studentsByDept[dept] = [];
             studentsByDept[dept].push(s);
@@ -672,7 +672,7 @@ export class App {
             if (!exists) {
                 let dept = "OTHERS";
                 const deptCode = s.regNo.toString().substring(6, 9);
-                if (deptCode === "107") dept = "CYBER SECURITY";
+                if (deptCode === "107") dept = "CYBER";
                 else if (deptCode === "202") dept = "AIML";
 
                 await api.addStudent(s.regNo, s.name, "atkboss", dept);
@@ -694,9 +694,9 @@ export class App {
         if (btn) btn.disabled = true;
 
         // Determine department from Roll Number
-        let department = "CYBER SECURITY";
+        let department = "CYBER";
         const deptCode = sr_val.substring(6, 9);
-        if (deptCode === "107") department = "CYBER SECURITY";
+        if (deptCode === "107") department = "CYBER";
         else if (deptCode === "202") department = "AIML";
 
         const res = await api.addStudent(sr_val, sn_val, sp_val, department);
