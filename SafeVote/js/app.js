@@ -193,7 +193,7 @@ export class App {
 
     setTheme(theme) {
         this.theme = theme;
-        document.body.setAttribute('data-theme', theme);
+        document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('safevote-theme', theme);
 
         // Update selection UI

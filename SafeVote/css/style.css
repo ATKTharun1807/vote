@@ -6,9 +6,9 @@
     --bg-main: #f8fafc;
     --text-main: #0f172a;
     --text-muted: #64748b;
-    --glass: rgba(255, 255, 255, 0.8);
-    --card-bg: white;
-    --card-border: #e2e8f0;
+    --glass: rgba(255, 255, 255, 0.7);
+    --card-bg: rgba(255, 255, 255, 0.9);
+    --card-border: rgba(226, 232, 240, 0.8);
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
@@ -16,19 +16,13 @@
 
 [data-theme="dark"] {
     --bg-main: #020617;
-    /* Slate-950 */
     --text-main: #f8fafc;
-    /* Slate-50 */
     --text-muted: #94a3b8;
-    /* Slate-400 */
-    --glass: rgba(2, 6, 23, 0.85);
-    --card-bg: #0f172a;
-    /* Slate-900 */
-    --card-border: #1e293b;
-    /* Slate-800 */
+    --glass: rgba(15, 23, 42, 0.7);
+    --card-bg: rgba(15, 23, 42, 0.85);
+    --card-border: rgba(30, 41, 59, 0.7);
     --primary-light: rgba(37, 99, 235, 0.15);
     --primary: #3b82f6;
-    /* Lighter primary for dark mode contrast */
 }
 
 [data-theme="eye-protection"] {
@@ -51,6 +45,19 @@ body {
     margin: 0;
     line-height: 1.5;
     transition: background-color 0.3s ease, color 0.3s ease;
+    min-height: 100vh;
+}
+
+#bg-animation-canvas {
+    pointer-events: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
+    opacity: 1;
+    /* Increased from 0.6 */
 }
 
 h1,
@@ -92,6 +99,7 @@ p {
 
 .card-custom {
     background: var(--card-bg);
+    backdrop-filter: blur(8px);
     border-radius: 1.5rem;
     padding: 2.5rem;
     border: 1px solid var(--card-border);
