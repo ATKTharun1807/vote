@@ -647,6 +647,63 @@ p {
     }
 }
 
+/* Responsive Admin Login Grid */
+.admin-login-grid {
+    display: grid;
+    grid-template-columns: 1fr 450px 1fr;
+    gap: 2rem;
+    align-items: start;
+    margin: 4rem auto;
+}
+
+@media (max-width: 1200px) {
+    .admin-login-grid {
+        grid-template-columns: 1fr;
+        max-width: 500px;
+    }
+}
+
+/* Base mobile-hidden utility if not present */
+@media (max-width: 1024px) {
+    .mobile-hidden {
+        display: none !important;
+    }
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Ensuring table responsiveness */
+.admin-table-container {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Modal sizing on mobile */
+@media (max-width: 480px) {
+    .modal-content {
+        padding: 1.5rem;
+        width: 95%;
+    }
+
+    .hero-title {
+        font-size: 2rem;
+    }
+
+    .btn-primary-custom {
+        padding: 1rem 1.5rem;
+        font-size: 0.85rem;
+    }
+}
+
 /* Modal Styling */
 .modal-overlay {
     position: fixed;
