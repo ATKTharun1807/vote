@@ -385,7 +385,10 @@ p {
     font-weight: 900;
     line-height: 1.1;
     margin-bottom: 1.5rem;
-    color: var(--text-main);
+    background: linear-gradient(135deg, var(--text-main) 0%, var(--primary) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .hero-title span.text-primary {
