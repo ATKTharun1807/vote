@@ -1,15 +1,17 @@
 /**
- * SafeVote Premium Background Animation
- * Dynamic Neural Nodes & Floating Glass Orbs
+ * SafeVote Ultra-Premium Background Animation
+ * "The Nexus Flow" - Dynamic Geometric Web & Ethereal Orbs
  */
 
-class PremiumAnimation {
+class NexusAnimation {
     constructor() {
         this.canvas = document.createElement('canvas');
         this.ctx = this.canvas.getContext('2d');
         this.particles = [];
         this.mouse = { x: -100, y: -100, radius: 250 };
         this.theme = 'light';
+        this.hue = 220; // Base hue for blue
+        this.time = 0;
 
         this.init();
     }
@@ -24,6 +26,7 @@ class PremiumAnimation {
         this.canvas.style.zIndex = '-1';
         this.canvas.style.pointerEvents = 'none';
         this.canvas.style.opacity = '1';
+        this.canvas.style.background = 'transparent';
         document.body.prepend(this.canvas);
 
         window.addEventListener('resize', () => this.resize());
@@ -45,7 +48,8 @@ class PremiumAnimation {
         const newTheme = document.documentElement.getAttribute('data-theme') || 'light';
         if (this.theme !== newTheme) {
             this.theme = newTheme;
-            this.createParticles(); // Re-create with new colors
+            // Transition effect: burst particles or just change colors
+            this.createParticles();
         }
     }
 
@@ -55,103 +59,127 @@ class PremiumAnimation {
         this.createParticles();
     }
 
-    getRandomColor() {
-        const colors = {
-            light: ['#2563eb', '#3b82f6', '#60a5fa', '#0ea5e9'],
-            dark: ['#3b82f6', '#1d4ed8', '#60a5fa', '#93c5fd'],
-            'eye-protection': ['#b45309', '#d97706', '#f59e0b', '#8b5e3c']
-        };
-        const palette = colors[this.theme] || colors.light;
-        return palette[Math.floor(Math.random() * palette.length)];
+    getThemeColors() {
+        switch (this.theme) {
+            case 'dark':
+                return {
+                    primary: '60, 130, 246', // Blue 500
+                    secondary: '147, 197, 253', // Blue 300
+                    accent: '37, 99, 235', // Blue 600
+                    bg: '10, 15, 30'
+                };
+            case 'eye-protection':
+                return {
+                    primary: '217, 119, 6', // Amber 600
+                    secondary: '251, 191, 36', // Amber 400
+                    accent: '146, 64, 14', // Amber 800
+                    bg: '25, 20, 15'
+                };
+            default: // light
+                return {
+                    primary: '37, 99, 235', // Blue 600
+                    secondary: '96, 165, 250', // Blue 400
+                    accent: '29, 78, 216', // Blue 700
+                    bg: '255, 255, 255'
+                };
+        }
     }
 
     createParticles() {
         this.particles = [];
-        const count = Math.min(70, Math.floor((this.width * this.height) / 20000));
+        const count = Math.min(80, Math.floor((this.width * this.height) / 15000));
+        const colors = this.getThemeColors();
 
         for (let i = 0; i < count; i++) {
             this.particles.push({
                 x: Math.random() * this.width,
                 y: Math.random() * this.height,
-                vx: (Math.random() - 0.5) * 0.4,
-                vy: (Math.random() - 0.5) * 0.4,
-                size: Math.random() * 2 + 2,
-                orbit: Math.random() * Math.PI * 2,
-                orbitSpeed: (Math.random() - 0.5) * 0.005,
-                radius: Math.random() * 60 + 20,
-                color: this.getRandomColor()
+                z: Math.random() * 5 + 1, // Depth factor
+                vx: (Math.random() - 0.5) * 0.5,
+                vy: (Math.random() - 0.5) * 0.5,
+                size: Math.random() * 3 + 1,
+                color: Math.random() > 0.5 ? colors.primary : colors.secondary,
+                pulse: Math.random() * Math.PI * 2,
+                pulseSpeed: 0.02 + Math.random() * 0.03
             });
         }
     }
 
-    drawGlow(x, y, size, color) {
-        this.ctx.shadowBlur = size * 4;
-        this.ctx.shadowColor = color;
-        this.ctx.fillStyle = color + '99';
+    drawHexagon(x, y, size, color, opacity) {
         this.ctx.beginPath();
-        this.ctx.arc(x, y, size, 0, Math.PI * 2);
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i;
+            const px = x + size * Math.cos(angle);
+            const py = y + size * Math.sin(angle);
+            if (i === 0) this.ctx.moveTo(px, py);
+            else this.ctx.lineTo(px, py);
+        }
+        this.ctx.closePath();
+        this.ctx.fillStyle = `rgba(${color}, ${opacity})`;
         this.ctx.fill();
-        this.ctx.shadowBlur = 0;
     }
 
     animate() {
         this.ctx.clearRect(0, 0, this.width, this.height);
+        this.time += 0.01;
+        const colors = this.getThemeColors();
 
         this.particles.forEach((p, i) => {
-            // Orbital vibration logic
-            p.orbit += p.orbitSpeed;
-            const ox = Math.cos(p.orbit) * p.radius * 0.2;
-            const oy = Math.sin(p.orbit) * p.radius * 0.2;
+            // Movement with depth-based speed
+            p.x += p.vx * (1 / p.z);
+            p.y += p.vy * (1 / p.z);
 
-            p.x += p.vx;
-            p.y += p.vy;
-
-            // Loop edges
+            // Screen wrap
             if (p.x < -50) p.x = this.width + 50;
             if (p.x > this.width + 50) p.x = -50;
             if (p.y < -50) p.y = this.height + 50;
             if (p.y > this.height + 50) p.y = -50;
 
-            const targetX = p.x + ox;
-            const targetY = p.y + oy;
-
-            // Mouse interaction
-            const dx = this.mouse.x - targetX;
-            const dy = this.mouse.y - targetY;
+            // Mouse repulsion/attraction logic
+            const dx = this.mouse.x - p.x;
+            const dy = this.mouse.y - p.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
-            let scale = 1;
+            let extraSize = 0;
             if (dist < this.mouse.radius) {
-                scale = 1 + (1 - dist / this.mouse.radius) * 1.5;
-                const force = (1 - dist / this.mouse.radius) * 0.02;
-                p.vx -= dx * force;
-                p.vy -= dy * force;
+                const force = (1 - dist / this.mouse.radius);
+                p.x -= dx * force * 0.02;
+                p.y -= dy * force * 0.02;
+                extraSize = force * 5;
             }
 
-            // Render
-            this.drawGlow(targetX, targetY, p.size * scale, p.color);
+            // Pulse effect
+            p.pulse += p.pulseSpeed;
+            const pulseFactor = Math.sin(p.pulse) * 0.3 + 0.7;
+            const opac = (0.2 + (1 / p.z) * 0.4) * pulseFactor;
 
-            // Lines
+            // Draw particle (node)
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, (p.size + extraSize) * (2 / p.z), 0, Math.PI * 2);
+            this.ctx.fillStyle = `rgba(${p.color}, ${opac})`;
+            this.ctx.fill();
+
+            // Connections
             for (let j = i + 1; j < this.particles.length; j++) {
                 const p2 = this.particles[j];
-                const p2X = p2.x + Math.cos(p2.orbit) * p2.radius * 0.2;
-                const p2Y = p2.y + Math.sin(p2.orbit) * p2.radius * 0.2;
-
-                const ldx = targetX - p2X;
-                const ldy = targetY - p2Y;
+                const ldx = p.x - p2.x;
+                const ldy = p.y - p2.y;
                 const ldist = Math.sqrt(ldx * ldx + ldy * ldy);
 
-                if (ldist < 200) {
-                    const opacity = (1 - ldist / 200) * 0.15;
-                    this.ctx.strokeStyle = p.color + Math.floor(opacity * 255).toString(16).padStart(2, '0');
-                    this.ctx.lineWidth = 1;
+                if (ldist < 150) {
+                    const lineOpac = (1 - ldist / 150) * 0.15 * (1 / p.z);
                     this.ctx.beginPath();
-                    this.ctx.moveTo(targetX, targetY);
-                    this.ctx.lineTo(p2X, p2Y);
+                    this.ctx.moveTo(p.x, p.y);
+                    this.ctx.lineTo(p2.x, p2.y);
+                    this.ctx.strokeStyle = `rgba(${colors.primary}, ${lineOpac})`;
+                    this.ctx.lineWidth = 0.5;
                     this.ctx.stroke();
                 }
             }
         });
+
+        // Add a subtle gradient overlay in code if needed, 
+        // but usually CSS handles the main background color.
 
         requestAnimationFrame(() => this.animate());
     }
@@ -159,7 +187,9 @@ class PremiumAnimation {
 
 // Initialized when the script loads
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => new PremiumAnimation());
+    document.addEventListener('DOMContentLoaded', () => {
+        window.nexusAnimation = new NexusAnimation();
+    });
 } else {
-    new PremiumAnimation();
+    window.nexusAnimation = new NexusAnimation();
 }
