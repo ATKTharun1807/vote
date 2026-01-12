@@ -33,7 +33,7 @@ mongoose.connect(MONGO_URI, {
 const StudentSchema = new mongoose.Schema({
     regNo: { type: Number, required: true, unique: true },
     name: String,
-    department: { type: String, default: 'CYBER' },
+    department: { type: String, default: 'CYBER SECURITY' },
     password: { type: String, default: 'atkboss' },
     hasVoted: { type: Boolean, default: false },
     addedAt: { type: Date, default: Date.now }
@@ -166,7 +166,7 @@ app.post('/api/students/add', async (req, res) => {
         await Student.create({
             regNo,
             name,
-            department: req.body.department || 'CYBER',
+            department: req.body.department || 'CYBER SECURITY',
             password: password || 'atkboss',
             hasVoted: false
         });

@@ -7,7 +7,7 @@ const MONGO_URI = "mongodb+srv://stharunkumar069_db_user:siet%40123@cluster0.frc
 const studentSchema = new mongoose.Schema({
     regNo: { type: Number, required: true, unique: true },
     name: String,
-    department: { type: String, default: 'CYBER' },
+    department: { type: String, default: 'CYBER SECURITY' },
     password: { type: String, default: 'atkboss' },
     hasVoted: { type: Boolean, default: false },
     addedAt: { type: Date, default: Date.now }
@@ -38,7 +38,7 @@ async function restore() {
         for (const s of localStudents) {
             await Student.updateOne(
                 { regNo: s.regNo },
-                { $set: { name: s.name, password: s.password, hasVoted: s.hasVoted, department: s.department || 'CYBER' } },
+                { $set: { name: s.name, password: s.password, hasVoted: s.hasVoted, department: s.department || 'CYBER SECURITY' } },
                 { upsert: true }
             );
         }

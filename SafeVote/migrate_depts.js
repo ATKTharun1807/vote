@@ -29,6 +29,8 @@ async function migrate() {
             let dept = "CYBER SECURITY";
             if (deptCode === "107") {
                 dept = "CYBER SECURITY";
+            } else if (deptCode === "202") {
+                dept = "AIML";
             }
 
             if (student.department !== dept) {

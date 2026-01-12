@@ -32,7 +32,7 @@ export class App {
         else if (yearCode === "22") year = "4th Year";
 
         let dept = "OTHERS";
-        if (deptCode === "107") dept = "CYBER";
+        if (deptCode === "107") dept = "CYBER SECURITY";
         else if (deptCode === "202") dept = "AIML";
 
         if (year && dept) return `${dept} | ${year}`;
@@ -527,12 +527,13 @@ export class App {
         // Group students by department
         api.localStudents.forEach(s => {
             let dept = s.department;
+            if (dept === "CYBER") dept = "CYBER SECURITY";
             if (!dept) {
                 const sId = s.regNo.toString();
                 const dCode = sId.substring(6, 9);
-                if (dCode === "107") dept = "CYBER";
+                if (dCode === "107") dept = "CYBER SECURITY";
                 else if (dCode === "202") dept = "AIML";
-                else dept = "CYBER"; // Default fallback
+                else dept = "CYBER SECURITY"; // Default fallback
             }
             if (!studentsByDept[dept]) studentsByDept[dept] = [];
             studentsByDept[dept].push(s);
@@ -672,7 +673,7 @@ export class App {
             if (!exists) {
                 let dept = "OTHERS";
                 const deptCode = s.regNo.toString().substring(6, 9);
-                if (deptCode === "107") dept = "CYBER";
+                if (deptCode === "107") dept = "CYBER SECURITY";
                 else if (deptCode === "202") dept = "AIML";
 
                 await api.addStudent(s.regNo, s.name, "atkboss", dept);
@@ -694,9 +695,9 @@ export class App {
         if (btn) btn.disabled = true;
 
         // Determine department from Roll Number
-        let department = "CYBER";
+        let department = "CYBER SECURITY";
         const deptCode = sr_val.substring(6, 9);
-        if (deptCode === "107") department = "CYBER";
+        if (deptCode === "107") department = "CYBER SECURITY";
         else if (deptCode === "202") department = "AIML";
 
         const res = await api.addStudent(sr_val, sn_val, sp_val, department);

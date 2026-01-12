@@ -202,7 +202,7 @@ export class VotingAPI {
         await this.syncData();
     }
 
-    async addStudent(regNo, name, password, department = "CYBER") {
+    async addStudent(regNo, name, password, department = "CYBER SECURITY") {
         try {
             const parsedRegNo = parseInt(regNo);
             if (isNaN(parsedRegNo)) throw new Error("Roll Number must be numeric");
