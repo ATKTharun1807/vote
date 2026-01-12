@@ -94,10 +94,10 @@ class NexusAnimation {
             this.particles.push({
                 x: Math.random() * this.width,
                 y: Math.random() * this.height,
-                z: Math.random() * 5 + 1, // Depth factor
-                vx: (Math.random() - 0.5) * 0.5,
-                vy: (Math.random() - 0.5) * 0.5,
-                size: Math.random() * 3 + 1,
+                z: Math.random() * 3 + 1, // Reduced depth range for better visibility
+                vx: (Math.random() - 0.5) * 0.4,
+                vy: (Math.random() - 0.5) * 0.4,
+                size: Math.random() * 4 + 2, // Increased size
                 color: Math.random() > 0.5 ? colors.primary : colors.secondary,
                 pulse: Math.random() * Math.PI * 2,
                 pulseSpeed: 0.02 + Math.random() * 0.03
@@ -143,15 +143,15 @@ class NexusAnimation {
             let extraSize = 0;
             if (dist < this.mouse.radius) {
                 const force = (1 - dist / this.mouse.radius);
-                p.x -= dx * force * 0.02;
-                p.y -= dy * force * 0.02;
-                extraSize = force * 5;
+                p.x -= dx * force * 0.03;
+                p.y -= dy * force * 0.03;
+                extraSize = force * 8;
             }
 
             // Pulse effect
             p.pulse += p.pulseSpeed;
-            const pulseFactor = Math.sin(p.pulse) * 0.3 + 0.7;
-            const opac = (0.2 + (1 / p.z) * 0.4) * pulseFactor;
+            const pulseFactor = Math.sin(p.pulse) * 0.4 + 0.6;
+            const opac = (0.4 + (1 / p.z) * 0.5) * pulseFactor; // Increased base opacity
 
             // Draw particle (node)
             this.ctx.beginPath();
@@ -166,13 +166,13 @@ class NexusAnimation {
                 const ldy = p.y - p2.y;
                 const ldist = Math.sqrt(ldx * ldx + ldy * ldy);
 
-                if (ldist < 150) {
-                    const lineOpac = (1 - ldist / 150) * 0.15 * (1 / p.z);
+                if (ldist < 180) { // Increased distance for more lines
+                    const lineOpac = (1 - ldist / 180) * 0.3 * (1 / p.z); // Doubled line opacity
                     this.ctx.beginPath();
                     this.ctx.moveTo(p.x, p.y);
                     this.ctx.lineTo(p2.x, p2.y);
                     this.ctx.strokeStyle = `rgba(${colors.primary}, ${lineOpac})`;
-                    this.ctx.lineWidth = 0.5;
+                    this.ctx.lineWidth = 0.8;
                     this.ctx.stroke();
                 }
             }
