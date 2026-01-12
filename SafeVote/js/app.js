@@ -1071,17 +1071,70 @@ export class App {
     }
 
     renderGuideTab(container) {
-        container.innerHTML = `
-            <div class="card-custom">
-                <h2>Admin Control Guide</h2>
-                <ul style="line-height:2">
-                    <li><b>Election Name:</b> Set the title for the portal and reports.</li>
-                    <li><b>Status:</b> Use START to open polls and STOP to finalize results.</li>
-                    <li><b>Turnout:</b> Real-time counter of total participation.</li>
-                    <li><b>Reset:</b> Clears all data for a fresh election cycle.</li>
-                </ul>
-            </div>
-        `;
+        if (this.role === 'voter') {
+            container.innerHTML = `
+                <div class="card-custom">
+                    <h2 style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1.5rem;">
+                        <i data-lucide="help-circle" style="color:var(--primary)"></i> Voter Participation Guide
+                    </h2>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:2rem;">
+                        <div>
+                            <h3 style="font-size:1.1rem; color:var(--primary); margin-bottom:1rem;">How to Vote</h3>
+                            <ul style="line-height:2; list-style: none; padding:0;">
+                                <li style="margin-bottom:0.8rem;"><i data-lucide="search" size="14" style="margin-right:0.5rem; color:var(--text-muted)"></i> <b>Find Candidate:</b> Use the search bar in the 'Vote Now' tab to filter candidates by name or party.</li>
+                                <li style="margin-bottom:0.8rem;"><i data-lucide="check-square" size="14" style="margin-right:0.5rem; color:var(--text-muted)"></i> <b>Cast Vote:</b> Click the 'VOTE' button on your preferred candidate. Note: You can only vote once.</li>
+                                <li style="margin-bottom:0.8rem;"><i data-lucide="lock" size="14" style="margin-right:0.5rem; color:var(--text-muted)"></i> <b>Verification:</b> Once cast, your ID is hashed and recorded. No one can see who you voted for.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 style="font-size:1.1rem; color:var(--primary); margin-bottom:1rem;">Your Security</h3>
+                            <ul style="line-height:2; list-style: none; padding:0;">
+                                <li style="margin-bottom:0.8rem;"><i data-lucide="shield" size="14" style="margin-right:0.5rem; color:var(--text-muted)"></i> <b>Identity:</b> Your vote is permanent and linked to your hashed ID for audit integrity.</li>
+                                <li style="margin-bottom:0.8rem;"><i data-lucide="link" size="14" style="margin-right:0.5rem; color:var(--text-muted)"></i> <b>Digital Ledger:</b> View the 'Digital Ledger' tab to see your vote's anonymous block.</li>
+                                <li style="margin-bottom:0.8rem;"><i data-lucide="key" size="14" style="margin-right:0.5rem; color:var(--text-muted)"></i> <b>Password:</b> Change your default password immediately using the button on the Vote tab.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div style="margin-top:2rem; padding:1.5rem; background:rgba(16, 185, 129, 0.05); border-radius:1rem; border:1px solid rgba(16, 185, 129, 0.1);">
+                        <h4 style="margin:0 0 0.5rem; color:#10b981; font-size:0.9rem;">Important Notice:</h4>
+                        <p style="margin:0; font-size:0.85rem; color:var(--text-muted);">This is a blockchain-based election. Once your vote is submitted, it is <b>immutable</b> and cannot be changed or deleted. Ensure your choice is final before clicking the button.</p>
+                    </div>
+                </div>
+            `;
+        } else {
+            container.innerHTML = `
+                <div class="card-custom">
+                    <h2 style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1.5rem;">
+                        <i data-lucide="book-open" style="color:var(--primary)"></i> Admin Control Guide
+                    </h2>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:2rem;">
+                        <div>
+                            <h3 style="font-size:1.1rem; color:var(--primary); margin-bottom:1rem;">Core Operations</h3>
+                            <ul style="line-height:2; list-style: none; padding:0;">
+                                <li style="margin-bottom:0.8rem;"><i data-lucide="edit-3" size="14" style="margin-right:0.5rem; color:var(--text-muted)"></i> <b>Election Name:</b> Set the official title for the portal and generated reports.</li>
+                                <li style="margin-bottom:0.8rem;"><i data-lucide="play-circle" size="14" style="margin-right:0.5rem; color:var(--text-muted)"></i> <b>Status Control:</b> Use <b>START</b> to open polls, <b>WAIT</b> to pause, and <b>STOP</b> to conclude voting.</li>
+                                <li style="margin-bottom:0.8rem;"><i data-lucide="bar-chart-2" size="14" style="margin-right:0.5rem; color:var(--text-muted)"></i> <b>Live Turnout:</b> Monitor real-time student participation percentages.</li>
+                                <li style="margin-bottom:0.8rem;"><i data-lucide="refresh-ccw" size="14" style="margin-right:0.5rem; color:var(--text-muted)"></i> <b>System Reset:</b> Perma-delete all votes and candidates for a new cycle.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 style="font-size:1.1rem; color:var(--primary); margin-bottom:1rem;">Management Tools</h3>
+                            <ul style="line-height:2; list-style: none; padding:0;">
+                                <li style="margin-bottom:0.8rem;"><i data-lucide="user-plus" size="14" style="margin-right:0.5rem; color:var(--text-muted)"></i> <b>Candidates:</b> Add participants with their names and party affiliations.</li>
+                                <li style="margin-bottom:0.8rem;"><i data-lucide="folder-search" size="14" style="margin-right:0.5rem; color:var(--text-muted)"></i> <b>Department Folders:</b> Review and manage student lists by specific departments.</li>
+                                <li style="margin-bottom:0.8rem;"><i data-lucide="file-down" size="14" style="margin-right:0.5rem; color:var(--text-muted)"></i> <b>PDF Export:</b> Generate a cryptographically signed report of final results.</li>
+                                <li style="margin-bottom:0.8rem;"><i data-lucide="key" size="14" style="margin-right:0.5rem; color:var(--text-muted)"></i> <b>Security Key:</b> Rotate the administrator access key periodically for safety.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div style="margin-top:2rem; padding:1.5rem; background:rgba(37,99,235,0.05); border-radius:1rem; border:1px solid rgba(37,99,235,0.1);">
+                        <h4 style="margin:0 0 0.5rem; color:var(--primary); font-size:0.9rem;">Pro Tip:</h4>
+                        <p style="margin:0; font-size:0.85rem; color:var(--text-muted);">Ensure all candidates are added <b>before</b> starting the election. While the system supports hot-swapping, it is best practice to have the ballot ready before the first vote is cast.</p>
+                    </div>
+                </div>
+            `;
+        }
+        if (window.lucide) window.lucide.createIcons();
     }
 
     showToast(m, t = 'success') {

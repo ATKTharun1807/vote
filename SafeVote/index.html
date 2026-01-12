@@ -242,30 +242,136 @@
 
         <!-- ADMIN LOGIN -->
         <div id="admin-login-view" class="hidden fade-in">
-            <div class="auth-container">
-                <div class="card-custom" style="text-align:center; position:relative;">
-                    <button onclick="window.app.showHome()"
-                        style="position:absolute; top:20px; left:20px; background:none; border:none; color:var(--text-muted); cursor:pointer; font-weight:700;"><i
-                            data-lucide="move-left"></i> BACK</button>
-                    <div class="login-img-container">
-                        <i data-lucide="shield-check" size="60" style="color:var(--text-main)"></i>
-                    </div>
-                    <h2 style="font-size:2rem; font-weight:900; margin-bottom:0.5rem">Admin Portal</h2>
-                    <p style="color:var(--text-muted); margin-bottom:2rem">Restricted access for election coordinators
-                        only.</p>
-                    <div class="form-group">
-                        <label class="form-label">Security Access Key</label>
-                        <div style="position: relative;">
-                            <input type="password" id="admin-key-input" class="form-input" placeholder="••••••••"
-                                onkeyup="if(event.key==='Enter') window.app.handleAdminLogin()">
-                            <i data-lucide="eye" id="admin-key-icon"
-                                onclick="window.app.togglePasswordVisibility('admin-key-input', 'admin-key-icon')"
-                                style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; width: 18px; height: 18px;"></i>
+            <div
+                style="max-width: 1200px; margin: 4rem auto; display: grid; grid-template-columns: 1fr 450px 1fr; gap: 2rem; align-items: start;">
+
+                <!-- LEFT PANEL: System Metrics -->
+                <div class="mobile-hidden fade-in" style="animation-delay: 0.1s;">
+                    <div class="card-custom" style="padding: 1.5rem; background: var(--glass);">
+                        <h3
+                            style="font-size: 0.8rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="activity" size="14"></i> System Integrity
+                        </h3>
+                        <div style="display: grid; gap: 1.25rem;">
+                            <div style="border-left: 3px solid #10b981; padding-left: 1rem;">
+                                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">SERVER
+                                    STATUS</div>
+                                <div style="font-size: 1rem; font-weight: 800; color: #10b981;">OPERATIONAL</div>
+                            </div>
+                            <div style="border-left: 3px solid var(--primary); padding-left: 1rem;">
+                                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">NETWORK
+                                    LATENCY</div>
+                                <div style="font-size: 1rem; font-weight: 800;">24ms (Optimal)</div>
+                            </div>
+                            <div style="border-left: 3px solid #6366f1; padding-left: 1rem;">
+                                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">ACTIVE NODES
+                                </div>
+                                <div style="font-size: 1rem; font-weight: 800;">12 Connected</div>
+                            </div>
+                            <div style="border-left: 3px solid #f59e0b; padding-left: 1rem;">
+                                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">DB UPTIME
+                                </div>
+                                <div style="font-size: 1rem; font-weight: 800;">99.9% Reliable</div>
+                            </div>
                         </div>
                     </div>
-                    <button onclick="window.app.handleAdminLogin()" class="btn-primary-custom"
-                        style="width:100%; padding:1.25rem; background:#1e293b;">Login as Administrator</button>
                 </div>
+
+                <!-- CENTER PANEL: The Login Form -->
+                <div class="auth-container" style="max-width: 450px; margin: 0;">
+                    <div class="card-custom" style="text-align:center; position:relative; margin-bottom: 2rem;">
+                        <button onclick="window.app.showHome()"
+                            style="position:absolute; top:20px; left:20px; background:none; border:none; color:var(--text-muted); cursor:pointer; font-weight:700;"><i
+                                data-lucide="move-left"></i> BACK</button>
+                        <div class="login-img-container">
+                            <i data-lucide="shield-check" size="60" style="color:var(--text-main)"></i>
+                        </div>
+                        <h2 style="font-size:2rem; font-weight:900; margin-bottom:0.5rem">Admin Portal</h2>
+                        <p style="color:var(--text-muted); margin-bottom:2rem">Restricted access for election
+                            coordinators
+                            only.</p>
+                        <div class="form-group">
+                            <label class="form-label">Security Access Key</label>
+                            <div style="position: relative;">
+                                <input type="password" id="admin-key-input" class="form-input" placeholder="••••••••"
+                                    onkeyup="if(event.key==='Enter') window.app.handleAdminLogin()">
+                                <i data-lucide="eye" id="admin-key-icon"
+                                    onclick="window.app.togglePasswordVisibility('admin-key-input', 'admin-key-icon')"
+                                    style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; width: 18px; height: 18px;"></i>
+                            </div>
+                        </div>
+                        <button onclick="window.app.handleAdminLogin()" class="btn-primary-custom"
+                            style="width:100%; padding:1.25rem; background:#1e293b;">Login as Administrator</button>
+                    </div>
+
+                    <!-- Security Protocol Info -->
+                    <div class="card-custom"
+                        style="padding: 1.5rem; background: rgba(30, 41, 59, 0.03); border-style: dashed;">
+                        <h3
+                            style="font-size: 0.9rem; font-weight: 800; margin-bottom: 1rem; text-align: center; color: var(--text-muted);">
+                            <i data-lucide="lock" size="14" style="vertical-align: middle; margin-right: 0.25rem;"></i>
+                            ADMIN SECURITY PROTOCOL
+                        </h3>
+                        <div style="display: grid; gap: 1rem; font-size: 0.8rem;">
+                            <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                                <div
+                                    style="background: var(--primary-light); padding: 0.4rem; border-radius: 8px; color: var(--primary);">
+                                    <i data-lucide="fingerprint" size="16"></i>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 700; color: var(--text-main);">Session Tracking</div>
+                                    <div style="color: var(--text-muted);">Your IP and session activity are logged for
+                                        security auditing.</div>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                                <div
+                                    style="background: rgba(16, 185, 129, 0.1); padding: 0.4rem; border-radius: 8px; color: #10b981;">
+                                    <i data-lucide="shield-check" size="16"></i>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 700; color: var(--text-main);">Encrypted Access</div>
+                                    <div style="color: var(--text-muted);">All administrative actions are encrypted
+                                        using AES-256 standards.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT PANEL: Admin Guidelines -->
+                <div class="mobile-hidden fade-in" style="animation-delay: 0.2s;">
+                    <div class="card-custom" style="padding: 1.5rem; background: var(--glass);">
+                        <h3
+                            style="font-size: 0.8rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="file-text" size="14"></i> Guidelines
+                        </h3>
+                        <div style="display: grid; gap: 1rem;">
+                            <div style="background: rgba(37, 99, 235, 0.05); padding: 1rem; border-radius: 1rem;">
+                                <div style="font-weight: 800; font-size: 0.75rem; margin-bottom: 0.25rem;">
+                                    CONFIDENTIALITY</div>
+                                <p style="font-size: 0.75rem; margin: 0;">Never share your security key with
+                                    unauthorized personnel.</p>
+                            </div>
+                            <div style="background: rgba(37, 99, 235, 0.05); padding: 1rem; border-radius: 1rem;">
+                                <div style="font-weight: 800; font-size: 0.75rem; margin-bottom: 0.25rem;">ELECTION
+                                    STATUS</div>
+                                <p style="font-size: 0.75rem; margin: 0;">Closing an election is permanent and
+                                    irreversible.</p>
+                            </div>
+                            <div style="background: rgba(37, 99, 235, 0.05); padding: 1rem; border-radius: 1rem;">
+                                <div style="font-weight: 800; font-size: 0.75rem; margin-bottom: 0.25rem;">SUPPORT</div>
+                                <p style="font-size: 0.75rem; margin: 0;">Contact the IT helpdesk for technical issues
+                                    during the live window.</p>
+                            </div>
+                        </div>
+                        <div style="margin-top: 1.5rem; text-align: center;">
+                            <div style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700;">SAFEVOTE v4.0.2
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
