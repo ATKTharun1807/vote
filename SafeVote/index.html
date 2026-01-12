@@ -126,11 +126,14 @@
                     your choice is permanent, private, and powerful.</p>
                 <div class="btn-group">
                     <button onclick="window.app.showView('student-login')" class="btn-primary-custom"
-                        style="padding:1.5rem 3rem">Student Login</button>
+                        style="padding:1.5rem 3rem; display:flex; align-items:center; gap:0.75rem;">
+                        <i data-lucide="user" size="24"></i> STUDENT LOGIN
+                    </button>
                     <button id="admin-portal-btn" onclick="window.app.showView('admin-login')"
                         class="btn-primary-custom"
-                        style="padding:1.5rem 3rem; background:var(--card-bg); color:var(--text-main); border:2px solid var(--card-border);">Admin
-                        Portal</button>
+                        style="padding:1.5rem 3rem; background:var(--card-bg); color:var(--text-main); border:2px solid var(--card-border); display:flex; align-items:center; gap:0.75rem;">
+                        <i data-lucide="shield-check" size="24"></i> ADMIN PORTAL
+                    </button>
                 </div>
             </header>
 
@@ -213,8 +216,7 @@
                         style="position:absolute; top:20px; left:20px; background:none; border:none; color:var(--text-muted); cursor:pointer; font-weight:700;"><i
                             data-lucide="move-left"></i> BACK</button>
                     <div class="login-img-container">
-                        <img src="https://www.shutterstock.com/image-vector/vote-hand-india-election-260nw-1338684383.jpg"
-                            alt="Student Login" style="width:100%; height:100%; object-fit:cover;">
+                        <i data-lucide="user-circle" size="60" style="color:var(--primary)"></i>
                     </div>
                     <h2 style="font-size:2rem; font-weight:900; margin-bottom:0.5rem">Student Access</h2>
                     <p style="color:var(--text-muted); margin-bottom:2rem">Enter your unique student ID to vote.</p>
@@ -246,8 +248,7 @@
                         style="position:absolute; top:20px; left:20px; background:none; border:none; color:var(--text-muted); cursor:pointer; font-weight:700;"><i
                             data-lucide="move-left"></i> BACK</button>
                     <div class="login-img-container">
-                        <img src="https://www.shutterstock.com/image-vector/vote-hand-india-election-260nw-1338684383.jpg"
-                            alt="Admin Portal" style="width:100%; height:100%; object-fit:cover;">
+                        <i data-lucide="shield-check" size="60" style="color:var(--text-main)"></i>
                     </div>
                     <h2 style="font-size:2rem; font-weight:900; margin-bottom:0.5rem">Admin Portal</h2>
                     <p style="color:var(--text-muted); margin-bottom:2rem">Restricted access for election coordinators
@@ -272,18 +273,30 @@
         <div id="dashboard-view" class="hidden fade-in">
             <div style="margin:2rem 0;">
                 <nav class="dashboard-nav">
-                    <button id="tab-vote" onclick="window.app.switchTab('vote')" class="nav-tab active">Vote
-                        Now</button>
-                    <button id="tab-guide" onclick="window.app.switchTab('guide')" class="nav-tab">Election
-                        Guide</button>
-                    <button id="tab-admin" onclick="window.app.switchTab('admin')" class="nav-tab hidden">Control
-                        Portal</button>
-                    <button id="tab-results" onclick="window.app.switchTab('results')" class="nav-tab hidden">Live
-                        Results</button>
-                    <button id="tab-students" onclick="window.app.switchTab('students')"
-                        class="nav-tab hidden">DEPARTMENT</button>
-                    <button id="tab-blockchain" onclick="window.app.switchTab('blockchain')" class="nav-tab">Digital
-                        Ledger</button>
+                    <button id="tab-vote" onclick="window.app.switchTab('vote')" class="nav-tab active"
+                        style="display:flex; align-items:center; gap:0.5rem;">
+                        <i data-lucide="vote" size="16"></i> Vote Now
+                    </button>
+                    <button id="tab-guide" onclick="window.app.switchTab('guide')" class="nav-tab"
+                        style="display:flex; align-items:center; gap:0.5rem;">
+                        <i data-lucide="info" size="16"></i> Election Guide
+                    </button>
+                    <button id="tab-admin" onclick="window.app.switchTab('admin')" class="nav-tab hidden"
+                        style="display:flex; align-items:center; gap:0.5rem;">
+                        <i data-lucide="layout-dashboard" size="16"></i> Control Portal
+                    </button>
+                    <button id="tab-results" onclick="window.app.switchTab('results')" class="nav-tab hidden"
+                        style="display:flex; align-items:center; gap:0.5rem;">
+                        <i data-lucide="pie-chart" size="16"></i> Live Results
+                    </button>
+                    <button id="tab-students" onclick="window.app.switchTab('students')" class="nav-tab hidden"
+                        style="display:flex; align-items:center; gap:0.5rem;">
+                        <i data-lucide="users" size="16"></i> DEPARTMENT
+                    </button>
+                    <button id="tab-blockchain" onclick="window.app.switchTab('blockchain')" class="nav-tab"
+                        style="display:flex; align-items:center; gap:0.5rem;">
+                        <i data-lucide="link" size="16"></i> Digital Ledger
+                    </button>
                 </nav>
             </div>
             <div id="content-area" class="fade-in"></div>
