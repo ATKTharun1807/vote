@@ -312,27 +312,78 @@ export class App {
 
     renderVoteTab(container) {
         const hasVoted = api.voterIds.includes(this.currentUser.regNo.toString());
-        const status = api.electionStatus;
-
         let html = `
-            <div class="card-custom bg-light mb-4" style="border:none; background:var(--bg-main); padding:1.5rem">
-                <div class="flex-between">
-                    <div>
-                        <h2 style="margin:0; color:var(--primary)">${api.electionName}</h2>
-                        <h4 style="margin:0.5rem 0 0; color:var(--text-main)">Welcome, ${this.currentUser.name} 
-                            ${this.role !== 'admin' ? `<span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal; margin-left:0.5rem">(${this.parseStudentId(this.currentUser.regNo)})</span>` : ''}
-                        </h4>
-                        <p style="margin:0.5rem 0 0; font-size:0.8rem; color:var(--text-muted)">Status: <span style="color:var(--primary); font-weight:800">${status}</span></p>
+            ${this.role !== 'admin' ? `
+                <div style="text-align:center; margin-bottom:2rem;">
+                    <button onclick="window.app.handleResetPassword()" class="btn-primary-custom" style="padding:0.4rem 1rem; font-size:0.7rem; background:var(--text-muted); color:white; text-transform:none;">Change Password</button>
+                </div>
+            ` : ''}
+        `;
+
+        // Scheduled Election Check
+        const now = new Date();
+        const startTime = api.startTime ? new Date(api.startTime) : null;
+        const endTime = api.endTime ? new Date(api.endTime) : null;
+        const isNotStartedYet = startTime && now < startTime;
+        const isAlreadyEnded = endTime && now > endTime;
+
+        if (isNotStartedYet) {
+            html += `
+                <div class="card-custom mb-5" style="text-align:center; padding:5rem 2rem; background:var(--card-bg);">
+                    <div style="background:var(--primary-light); width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 2rem;">
+                        <i data-lucide="calendar" size="40" style="color:var(--primary)"></i>
                     </div>
-                    <div style="text-align:right">
-                         ${this.role !== 'admin' ? `
-                            <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted)">ID: ${this.currentUser.regNo}</div>
-                            <button onclick="window.app.handleResetPassword()" class="btn-primary-custom" style="margin-top:0.75rem; padding:0.4rem 0.8rem; font-size:0.7rem; background:var(--text-muted); color:white;">RESET PASSWORD</button>
-                         ` : ''}
+                    <h2 style="margin:0; font-size:2rem; font-weight:900;">Election Scheduled</h2>
+                    <p style="color:var(--text-muted); margin-top:1rem; max-width:400px; margin-left:auto; margin-right:auto;">
+                        This election is scheduled to start on <br><b>${startTime.toLocaleString()}</b>.
+                    </p>
+                    <div class="mt-4" style="font-size:0.9rem; color:var(--primary); font-weight:800;">
+                        Please return at the scheduled time to cast your vote.
                     </div>
                 </div>
-            </div>
-        `;
+            `;
+            container.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+            return;
+        }
+
+        if (isAlreadyEnded && status !== 'ENDED') {
+            html += `
+                <div class="card-custom mb-5" style="text-align:center; padding:5rem 2rem; background:rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.2);">
+                    <div style="background:rgba(239, 68, 68, 0.1); width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 2rem;">
+                        <i data-lucide="timer-off" size="40" style="color:#ef4444"></i>
+                    </div>
+                    <h2 style="margin:0; font-size:2rem; font-weight:900; color:#b91c1c;">Voting Period Expired</h2>
+                    <p style="color:var(--text-muted); margin-top:1rem; max-width:400px; margin-left:auto; margin-right:auto;">
+                        The scheduled voting period for this election has ended.
+                    </p>
+                </div>
+            `;
+            container.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+            return;
+        }
+
+        // Dept restriction check
+        if (this.role === 'voter' && api.allowedDepartments.length > 0) {
+            if (!api.allowedDepartments.includes(this.currentUser.department)) {
+                html += `
+                    <div class="card-custom mb-5" style="text-align:center; padding:5rem 2rem; background:rgba(245, 158, 11, 0.05); border-color: rgba(245, 158, 11, 0.2);">
+                        <div style="background:rgba(245, 158, 11, 0.1); width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 2rem;">
+                            <i data-lucide="ban" size="40" style="color:#f59e0b"></i>
+                        </div>
+                        <h2 style="margin:0; font-size:2rem; font-weight:900; color:#d97706;">Restricted Access</h2>
+                        <p style="color:var(--text-muted); margin-top:1rem; max-width:400px; margin-left:auto; margin-right:auto;">
+                            This election is only open to the following departments: <br><b>${api.allowedDepartments.join(', ')}</b>.
+                        </p>
+                        <p style="font-size:0.8rem; margin-top:1rem;">Your department: <b>${this.currentUser.department || 'Unknown'}</b></p>
+                    </div>
+                `;
+                container.innerHTML = html;
+                if (window.lucide) window.lucide.createIcons();
+                return;
+            }
+        }
 
         if (status === 'NOT_STARTED' || status === 'WAIT') {
             html += `
@@ -411,50 +462,139 @@ export class App {
         const turnoutPercent = totalStudents ? ((turnoutCount / totalStudents) * 100).toFixed(1) : 0;
 
         let html = `
-            <div style="margin-bottom:2rem">
-                <h2 style="margin:0">${api.electionName}</h2>
-                <p style="color:var(--text-muted)">System Control Panel</p>
-            </div>
-
             <div class="feature-grid">
                 <div class="feature-box">
-                    <div class="feature-title">Election Name</div>
-                    <div style="display:flex; gap:0.5rem; margin-top:1rem">
-                        <input id="election-name-input" class="form-input" value="${api.electionName}" placeholder="Enter name...">
-                        <button onclick="window.app.handleUpdateName()" class="btn-primary-custom" style="padding:0.5rem 1rem">SAVE</button>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div class="feature-title">Election Name</div>
+                        <i data-lucide="edit-3" size="18" style="color:var(--text-muted)"></i>
+                    </div>
+                    <div style="flex-grow:1; display:flex; align-items:center;">
+                        <p style="font-size:0.9rem; color:var(--text-main); margin:0; font-weight:600; line-height:1.4;">
+                            <span style="display:block; font-size:0.7rem; color:var(--text-muted); font-weight:800; text-transform:uppercase; margin-bottom:0.25rem;">Global Title</span>
+                            ${api.electionName}
+                        </p>
+                    </div>
+                    <div style="display:flex; gap:0.5rem; margin-top:1rem; pt:1rem; border-top:1px solid var(--card-border);">
+                        <input id="election-name-input" class="form-input" value="${api.electionName}" placeholder="Edit name..." style="padding: 0.6rem 0.8rem; font-size:0.85rem;">
+                        <button onclick="window.app.handleUpdateName()" class="btn-primary-custom" style="padding:0; width:45px; height:40px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                            <i data-lucide="check" size="18"></i>
+                        </button>
                     </div>
                 </div>
                 <div class="feature-box">
-                    <div class="feature-title">Election Status</div>
-                    <div style="font-size:1.5rem; font-weight:900; color:var(--primary); margin:0.5rem 0">${api.electionStatus}</div>
-                    <div style="display:flex; gap:0.5rem">
-                        <button onclick="api.updateStatus('ONGOING')" class="btn-primary-custom" style="flex:1; padding:0.5rem; font-size:0.8rem;">Start</button>
-                        <button onclick="api.updateStatus('WAIT')" class="btn-primary-custom" style="flex:1; padding:0.5rem; font-size:0.8rem; background:#64748b">Wait</button>
-                        <button onclick="api.updateStatus('ENDED')" class="btn-primary-custom" style="flex:1; padding:0.5rem; font-size:0.8rem; background:#ef4444">Stop</button>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div class="feature-title">Election Status</div>
+                        <i data-lucide="activity" size="18" style="color:var(--text-muted)"></i>
+                    </div>
+                    <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center;">
+                        <div style="font-size:0.7rem; color:var(--text-muted); font-weight:800; text-transform:uppercase; margin-bottom:0.4rem;">Live Status</div>
+                        <div style="font-size:1.5rem; font-weight:900; color:var(--primary);">${api.electionStatus}</div>
+                    </div>
+                    <div style="display:flex; gap:0.5rem; margin-top:1rem; pt:1rem; border-top:1px solid var(--card-border);">
+                        <button onclick="api.updateStatus('ONGOING')" class="btn-primary-custom" style="flex:1; padding:0.6rem; font-size:0.75rem; text-transform:none; display:flex; align-items:center; justify-content:center; gap:0.4rem;">
+                            <i data-lucide="play" size="14"></i> Start
+                        </button>
+                        <button onclick="api.updateStatus('WAIT')" class="btn-primary-custom" style="flex:1; padding:0.6rem; font-size:0.75rem; background:#64748b; text-transform:none; display:flex; align-items:center; justify-content:center; gap:0.4rem;">
+                            <i data-lucide="pause" size="14"></i> Wait
+                        </button>
+                        <button onclick="api.updateStatus('ENDED')" class="btn-primary-custom" style="flex:1; padding:0.6rem; font-size:0.75rem; background:#ef4444; text-transform:none; display:flex; align-items:center; justify-content:center; gap:0.4rem;">
+                            <i data-lucide="square" size="14"></i> Stop
+                        </button>
                     </div>
                 </div>
                 <div class="feature-box" style="border-color: #e0f2fe; background: #f0f9ff;">
-                    <div class="feature-title" style="color: #0369a1;">Vote Turnout</div>
-                    <div style="font-size:2.5rem; font-weight:900; color:#0ea5e9; margin:0.5rem 0">${turnoutPercent}%</div>
-                    <p style="font-size:0.8rem; color:#0284c7; margin:0">${turnoutCount} / ${totalStudents} Students Voted</p>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div class="feature-title" style="color: #0369a1;">Vote Turnout</div>
+                        <i data-lucide="pie-chart" size="18" style="color:#0369a1"></i>
+                    </div>
+                    <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center;">
+                        <div style="font-size:2.5rem; font-weight:900; color:#0ea5e9;">${turnoutPercent}%</div>
+                        <p style="font-size:0.8rem; color:#0284c7; margin:0.25rem 0 0;">${turnoutCount} / ${totalStudents} Students Voted</p>
+                    </div>
                 </div>
                 <div class="feature-box" style="border-color: #dcfce7; background: #f0fdf4;">
-                    <div class="feature-title" style="color: #166534;">Export Data</div>
-                    <p style="font-size:0.8rem; color:#15803d; margin-bottom:1rem">Generate PDF report with results.</p>
-                    <button onclick="window.app.handleDownloadPDF()" class="btn-primary-custom" style="background:#16a34a; width:100%">GENERATE PDF</button>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div class="feature-title" style="color: #166534;">Export Data</div>
+                        <i data-lucide="download" size="18" style="color:#166534"></i>
+                    </div>
+                    <div style="flex-grow:1; display:flex; align-items:center;">
+                        <p style="font-size:0.85rem; color:#15803d; margin:0; line-height:1.4;">Finalize and download the complete election report in PDF format.</p>
+                    </div>
+                    <div style="margin-top:1rem; pt:1rem; border-top:1px solid rgba(21, 128, 61, 0.1);">
+                        <button onclick="window.app.handleDownloadPDF()" class="btn-primary-custom" style="background:#16a34a; width:100%; padding:0.75rem; text-transform:none; font-size:0.85rem; display:flex; align-items:center; justify-content:center; gap:0.5rem;">
+                            <i data-lucide="file-text" size="16"></i> GENERATE PDF
+                        </button>
+                    </div>
                 </div>
                 <div class="feature-box" style="border-color: #ffedd5; background: #fffaf2;">
-                    <div class="feature-title" style="color: #9a3412;">Share Election link</div>
-                    <p style="font-size:0.8rem; color:#c2410c; margin-bottom:1rem">Copy a direct link for students to vote.</p>
-                    <button onclick="window.app.handleCopyLink()" class="btn-primary-custom" style="background:#f97316; width:100%">COPY VOTING LINK</button>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div class="feature-title" style="color: #9a3412;">Voting Link</div>
+                        <i data-lucide="link" size="18" style="color:#9a3412"></i>
+                    </div>
+                    <div style="flex-grow:1; display:flex; align-items:center;">
+                        <p style="font-size:0.85rem; color:#c2410c; margin:0; line-height:1.4;">Share this direct access link with students to allow them to cast their votes.</p>
+                    </div>
+                    <div style="margin-top:1rem; pt:1rem; border-top:1px solid rgba(194, 65, 12, 0.1);">
+                        <button onclick="window.app.handleCopyLink()" class="btn-primary-custom" style="background:#f97316; width:100%; padding:0.75rem; text-transform:none; font-size:0.85rem; display:flex; align-items:center; justify-content:center; gap:0.5rem;">
+                            <i data-lucide="copy" size="16"></i> COPY LINK
+                        </button>
+                    </div>
                 </div>
                 <div class="feature-box" style="border-color: var(--card-border); background: var(--bg-main);">
-                    <div class="feature-title" style="color: var(--primary);">System Security</div>
-                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem">Change Admin Security Key</p>
-                    <div style="display:flex; gap:0.5rem">
-                         <input id="new-admin-key" type="password" class="form-input" placeholder="New Key" style="font-size:0.8rem">
-                         <button onclick="window.app.handleUpdateAdminKey()" class="btn-primary-custom" style="padding:0.5rem 1rem; background:var(--text-muted); color:white;">UPDATE</button>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div class="feature-title" style="color: var(--primary);">System Security</div>
+                        <i data-lucide="shield-check" size="18" style="color:var(--primary)"></i>
                     </div>
+                    <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center;">
+                        <div style="font-size:0.7rem; color:var(--text-muted); font-weight:800; text-transform:uppercase; margin-bottom:0.4rem;">Encryption Key</div>
+                        <p style="font-size:0.8rem; color:var(--text-muted); margin:0;">Update your administrator access key.</p>
+                    </div>
+                    <div style="display:flex; gap:0.5rem; margin-top:1rem; pt:1rem; border-top:1px solid var(--card-border);">
+                         <input id="new-admin-key" type="password" class="form-input" placeholder="New Key" style="font-size:0.85rem; padding: 0.6rem 0.8rem;">
+                         <button onclick="window.app.handleUpdateAdminKey()" class="btn-primary-custom" style="padding:0.6rem 1rem; background:#64748b; color:white; text-transform:none; font-size:0.8rem; flex-shrink:0;">UPDATE</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-custom mt-5" style="padding: 2rem; border: 1px dashed var(--primary); background: rgba(37, 99, 235, 0.02);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem">
+                    <h3 style="margin:0"><i data-lucide="calendar-days" style="vertical-align:middle; margin-right:0.5rem"></i> Election Scheduler (Future Setup)</h3>
+                    <div style="background:var(--primary); color:white; padding:0.25rem 0.75rem; border-radius:99px; font-size: 0.7rem; font-weight:800;">BETA</div>
+                </div>
+                
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1.5rem; margin-bottom: 1.5rem;">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label class="form-label">Future Election Name</label>
+                        <input type="text" id="sched-name" class="form-input" value="${api.electionName}" placeholder="e.g. 2026 Student Council Elections">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Start Date & Time</label>
+                        <input type="datetime-local" id="sched-start" class="form-input" value="${api.startTime ? new Date(api.startTime).toISOString().slice(0, 16) : ''}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">End Date & Time</label>
+                        <input type="datetime-local" id="sched-end" class="form-input" value="${api.endTime ? new Date(api.endTime).toISOString().slice(0, 16) : ''}">
+                    </div>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label class="form-label">Restrict to Departments</label>
+                    <div style="display:flex; flex-wrap:wrap; gap:1.5rem; margin-top:0.5rem">
+                        <label style="display:flex; align-items:center; gap:0.6rem; font-size:0.9rem; cursor:pointer; font-weight:600;">
+                            <input type="checkbox" name="sched-dept" value="CYBER SECURITY" ${(api.allowedDepartments || []).includes('CYBER SECURITY') ? 'checked' : ''} style="width:18px; height:18px;"> CYBER SECURITY
+                        </label>
+                        <label style="display:flex; align-items:center; gap:0.6rem; font-size:0.9rem; cursor:pointer; font-weight:600;">
+                            <input type="checkbox" name="sched-dept" value="AIML" ${(api.allowedDepartments || []).includes('AIML') ? 'checked' : ''} style="width:18px; height:18px;"> AIML
+                        </label>
+                        <label style="display:flex; align-items:center; gap:0.6rem; font-size:0.9rem; cursor:pointer; font-weight:600;">
+                            <input type="checkbox" name="sched-dept" value="OTHERS" ${(api.allowedDepartments || []).includes('OTHERS') ? 'checked' : ''} style="width:18px; height:18px;"> OTHERS
+                        </label>
+                    </div>
+                </div>
+                
+                <div style="margin-top:1.5rem; display:flex; gap:1rem; align-items:center;">
+                    <button onclick="window.app.handleScheduleElection()" class="btn-primary-custom" style="padding:0.75rem 2rem; background:var(--primary);">APPLY SCHEDULE</button>
+                    ${api.startTime ? `<div style="font-size:0.7rem; color:var(--text-muted);">Current Active Schedule: <b>${new Date(api.startTime).toLocaleString()}</b> to <b>${new Date(api.endTime).toLocaleString()}</b></div>` : ''}
                 </div>
             </div>
 
@@ -542,16 +682,10 @@ export class App {
         const departments = Object.keys(studentsByDept).sort();
 
         let html = `
-            <div style="margin-bottom:2rem; display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <h2 style="margin:0">DEPARTMENT Folders</h2>
-                    <p style="color:var(--text-muted)">Manage voter database grouped by department.</p>
-                </div>
-                <div style="display:flex; gap:1rem; align-items:center;">
-                    <button onclick="window.app.handleImportStudents()" class="btn-primary-custom" style="background:var(--card-bg); color:var(--text-main); border:1px solid var(--card-border); padding:0.5rem 1rem; font-size:0.75rem;">IMPORT ALL FROM DB</button>
-                    <div style="background:var(--primary-light); color:var(--primary); padding: 0.5rem 1rem; border-radius: 99px; font-weight: 800;">
-                        ${api.localStudents.length} Total Students
-                    </div>
+            <div style="display:flex; gap:1rem; align-items:center; justify-content:center; margin-bottom:2rem;">
+                <button onclick="window.app.handleImportStudents()" class="btn-primary-custom" style="background:var(--card-bg); color:var(--text-main); border:1px solid var(--card-border); padding:0.4rem 1rem; font-size:0.75rem; text-transform:none;">Import Students</button>
+                <div style="background:var(--primary-light); color:var(--primary); padding: 0.4rem 1rem; border-radius: 99px; font-weight: 800; font-size:0.8rem;">
+                    ${api.localStudents.length} Students
                 </div>
             </div>
 
@@ -754,6 +888,38 @@ export class App {
             this.showToast("Admin key updated! Next login will require new key.");
             document.getElementById('new-admin-key').value = '';
         });
+    }
+
+    async handleScheduleElection() {
+        const name = document.getElementById('sched-name').value.trim();
+        const start = document.getElementById('sched-start').value;
+        const end = document.getElementById('sched-end').value;
+        const depts = Array.from(document.querySelectorAll('input[name="sched-dept"]:checked')).map(cb => cb.value);
+
+        if (!name) return this.showToast("Election name required", "error");
+        if (!start || !end) return this.showToast("Please set both start and end times", "error");
+        if (new Date(start) >= new Date(end)) return this.showToast("End time must be after start time", "error");
+
+        const data = {
+            electionName: name,
+            startTime: new Date(start).toISOString(),
+            endTime: new Date(end).toISOString(),
+            allowedDepartments: depts
+        };
+
+        const res = await fetch(`${api.baseUrl}/api/config/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+            this.showToast("Election Schedule Applied!");
+            await api.syncData();
+            this.renderContent();
+        } else {
+            this.showToast("Failed to apply schedule", "error");
+        }
     }
 
     async handleResetPassword() {

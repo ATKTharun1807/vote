@@ -30,6 +30,9 @@ export class VotingAPI {
         this.totalVotersCount = 0;
         this.voterIds = [];
         this.isLive = false;
+        this.startTime = null;
+        this.endTime = null;
+        this.allowedDepartments = [];
 
         this.startPolling();
     }
@@ -55,6 +58,9 @@ export class VotingAPI {
             this.electionName = data.config.electionName;
             this.electionStatus = data.config.electionStatus;
             this.adminKey = data.config.adminKey;
+            this.startTime = data.config.startTime;
+            this.endTime = data.config.endTime;
+            this.allowedDepartments = data.config.allowedDepartments || [];
 
             this.voterIds = this.localStudents.filter(s => s.hasVoted).map(s => s.regNo.toString());
             this.totalVotersCount = this.voterIds.length;

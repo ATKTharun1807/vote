@@ -58,7 +58,10 @@ const ConfigSchema = new mongoose.Schema({
     type: { type: String, default: 'main', unique: true },
     electionName: { type: String, default: 'Student Council Election' },
     electionStatus: { type: String, default: 'NOT_STARTED' },
-    adminKey: { type: String, default: 'admin123' }
+    adminKey: { type: String, default: 'admin123' },
+    startTime: { type: Date, default: null },
+    endTime: { type: Date, default: null },
+    allowedDepartments: { type: [String], default: [] }
 });
 
 const Student = mongoose.model('Student', StudentSchema);
@@ -232,6 +235,22 @@ app.post('/api/vote', async (req, res) => {
         const student = await Student.findOne({ regNo });
         if (!student) return res.status(404).json({ error: "Student not found in database" });
         if (student.hasVoted) return res.status(400).json({ error: "Student has already cast their vote" });
+
+        // Check Department Restriction
+        if (config.allowedDepartments && config.allowedDepartments.length > 0) {
+            if (!config.allowedDepartments.includes(student.department)) {
+                return res.status(403).json({ error: `Election restricted to ${config.allowedDepartments.join(', ')} departments only.` });
+            }
+        }
+
+        // Check Time Restriction
+        const now = new Date();
+        if (config.startTime && now < config.startTime) {
+            return res.status(400).json({ error: "Election has not started yet. Starts at: " + config.startTime.toLocaleString() });
+        }
+        if (config.endTime && now > config.endTime) {
+            return res.status(400).json({ error: "Election has already ended." });
+        }
 
         const candidate = await Candidate.findById(candidateId);
         if (!candidate) return res.status(404).json({ error: "Candidate not found" });
