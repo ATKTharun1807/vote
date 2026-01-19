@@ -580,15 +580,11 @@ export class App {
                 <div class="form-group" style="margin-bottom: 1.5rem;">
                     <label class="form-label">Restrict to Departments</label>
                     <div style="display:flex; flex-wrap:wrap; gap:1.5rem; margin-top:0.5rem">
-                        <label style="display:flex; align-items:center; gap:0.6rem; font-size:0.9rem; cursor:pointer; font-weight:600;">
-                            <input type="checkbox" name="sched-dept" value="CYBER SECURITY" ${(api.allowedDepartments || []).includes('CYBER SECURITY') ? 'checked' : ''} style="width:18px; height:18px;"> CYBER SECURITY
-                        </label>
-                        <label style="display:flex; align-items:center; gap:0.6rem; font-size:0.9rem; cursor:pointer; font-weight:600;">
-                            <input type="checkbox" name="sched-dept" value="AIML" ${(api.allowedDepartments || []).includes('AIML') ? 'checked' : ''} style="width:18px; height:18px;"> AIML
-                        </label>
-                        <label style="display:flex; align-items:center; gap:0.6rem; font-size:0.9rem; cursor:pointer; font-weight:600;">
-                            <input type="checkbox" name="sched-dept" value="OTHERS" ${(api.allowedDepartments || []).includes('OTHERS') ? 'checked' : ''} style="width:18px; height:18px;"> OTHERS
-                        </label>
+                        ${[...new Set(["CYBER SECURITY", "AIML", "OTHERS", ...api.localStudents.map(s => s.department || "OTHERS")])].sort().map(dept => `
+                            <label style="display:flex; align-items:center; gap:0.6rem; font-size:0.9rem; cursor:pointer; font-weight:600;">
+                                <input type="checkbox" name="sched-dept" value="${dept}" ${(api.allowedDepartments || []).includes(dept) ? 'checked' : ''} style="width:18px; height:18px;"> ${dept}
+                            </label>
+                        `).join('')}
                     </div>
                 </div>
                 
@@ -692,6 +688,16 @@ export class App {
             <div class="departments-container">
         `;
 
+        const allAvailableDepts = new Set(["CYBER SECURITY", "AIML", "OTHERS"]);
+        api.localStudents.forEach(s => {
+            if (s.department) allAvailableDepts.add(s.department);
+            else if (s.regNo) {
+                const dCode = s.regNo.toString().substring(6, 9);
+                if (dCode === "107") allAvailableDepts.add("CYBER SECURITY");
+                else if (dCode === "202") allAvailableDepts.add("AIML");
+            }
+        });
+
         // Render each department as a "folder" / section
         departments.forEach(dept => {
             const students = studentsByDept[dept].sort((a, b) => a.name.localeCompare(b.name));
@@ -762,7 +768,7 @@ export class App {
                     <h3 style="margin:0">Add New Student</h3>
                     <p style="margin:0; font-size:0.85rem; color:var(--text-muted)">Register a new voter to the system.</p>
                 </div>
-                <div class="grid-form" style="grid-template-columns: 1fr 1fr 1fr auto;">
+                <div class="grid-form" style="grid-template-columns: 1fr 1fr 1fr 1.2fr auto;">
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Full Name</label>
                         <input id="sn" class="form-input" placeholder="e.g. Alice Smith" autocomplete="off" onkeyup="if(event.key==='Enter') window.app.handleAddStudent()">
@@ -774,6 +780,16 @@ export class App {
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Password</label>
                         <input id="sp" class="form-input" placeholder="Default: atkboss" autocomplete="off" onkeyup="if(event.key==='Enter') window.app.handleAddStudent()">
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Department</label>
+                        <select id="sd" class="form-input" onchange="window.app.handleDeptSelect(this)">
+                            <option value="AUTO">Auto-detect (Recommended)</option>
+                            <optgroup label="Select Folder">
+                                ${Array.from(allAvailableDepts).sort().map(d => `<option value="${d}">${d}</option>`).join('')}
+                            </optgroup>
+                            <option value="NEW" style="color:var(--primary); font-weight:800;">+ Add New Department</option>
+                        </select>
                     </div>
                     <button onclick="window.app.handleAddStudent()" class="btn-primary-custom" style="padding: 1rem 2rem;">ADD STUDENT</button>
                 </div>
@@ -828,11 +844,16 @@ export class App {
         const btn = document.querySelector('button[onclick*="handleAddStudent"]');
         if (btn) btn.disabled = true;
 
-        // Determine department from Roll Number
-        let department = "CYBER SECURITY";
-        const deptCode = sr_val.substring(6, 9);
-        if (deptCode === "107") department = "CYBER SECURITY";
-        else if (deptCode === "202") department = "AIML";
+        // Determine department
+        const sd_el = document.getElementById('sd');
+        let department = sd_el.value;
+
+        if (department === 'AUTO') {
+            const deptCode = sr_val.substring(6, 9);
+            if (deptCode === "107") department = "CYBER SECURITY";
+            else if (deptCode === "202") department = "AIML";
+            else department = "OTHERS";
+        }
 
         const res = await api.addStudent(sr_val, sn_val, sp_val, department);
 
@@ -1021,6 +1042,37 @@ export class App {
             console.error('Failed to copy: ', err);
             this.showToast("Failed to copy link. Please copy manually: " + url, "error");
         });
+    }
+
+    handleDeptSelect(el) {
+        if (el.value === 'NEW') {
+            const newDept = prompt("Enter New Department Name:");
+            if (newDept && newDept.trim()) {
+                const deptName = newDept.trim().toUpperCase();
+
+                // Check if already exists in list
+                let exists = false;
+                for (let i = 0; i < el.options.length; i++) {
+                    if (el.options[i].value === deptName) {
+                        el.selectedIndex = i;
+                        exists = true;
+                        break;
+                    }
+                }
+
+                if (!exists) {
+                    const option = document.createElement('option');
+                    option.value = deptName;
+                    option.textContent = deptName;
+                    const optgroup = el.querySelector('optgroup');
+                    if (optgroup) optgroup.appendChild(option);
+                    else el.insertBefore(option, el.lastElementChild);
+                    el.value = deptName;
+                }
+            } else {
+                el.value = 'AUTO';
+            }
+        }
     }
 
     togglePasswordVisibility(inputId = 'student-pass-input', iconId = 'toggle-pass-icon') {
