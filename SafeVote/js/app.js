@@ -11,6 +11,8 @@ export class App {
         this.isMenuOpen = false;
         this.studentLinkMode = false;
         this.expandedDepts = {};
+        this.selectedDept = 'AUTO';
+        this.deptDropdownOpen = false;
     }
 
     toggleDept(dept) {
@@ -422,8 +424,9 @@ export class App {
         }
 
         html += `
-            <div class="mb-4">
-                <input type="text" id="candidate-search" oninput="window.app.searchQuery=this.value;window.app.renderContent()" placeholder="Search candidates..." class="form-input" style="max-width:400px; width:100%" value="${this.searchQuery}">
+            <div class="mb-5" style="position:relative; max-width:400px; width:100%">
+                <i data-lucide="search" style="position:absolute; left:1rem; top:50%; transform:translateY(-50%); color:var(--text-muted); width:18px;"></i>
+                <input type="text" id="candidate-search" oninput="window.app.searchQuery=this.value;window.app.renderContent()" placeholder="Search candidates..." class="form-input" style="padding-left:3rem;" value="${this.searchQuery}">
             </div>
             <div class="grid-responsive">
         `;
@@ -768,7 +771,7 @@ export class App {
                     <h3 style="margin:0">Add New Student</h3>
                     <p style="margin:0; font-size:0.85rem; color:var(--text-muted)">Register a new voter to the system.</p>
                 </div>
-                <div class="grid-form" style="grid-template-columns: 1fr 1fr 1fr 1.2fr auto;">
+                <div class="grid-form" style="grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 1.5rem;">
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Full Name</label>
                         <input id="sn" class="form-input" placeholder="e.g. Alice Smith" autocomplete="off" onkeyup="if(event.key==='Enter') window.app.handleAddStudent()">
@@ -783,13 +786,23 @@ export class App {
                     </div>
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Department</label>
-                        <select id="sd" class="form-input" onchange="window.app.handleDeptSelect(this)">
-                            <option value="AUTO">Auto-detect (Recommended)</option>
-                            <optgroup label="Select Folder">
-                                ${Array.from(allAvailableDepts).sort().map(d => `<option value="${d}">${d}</option>`).join('')}
-                            </optgroup>
-                            <option value="NEW" style="color:var(--primary); font-weight:800;">+ Add New Department</option>
-                        </select>
+                        <div class="custom-select-container" id="dept-select-wrapper">
+                            <div class="custom-select-trigger ${this.deptDropdownOpen ? 'active' : ''}" onclick="window.app.toggleDeptDropdown(event)">
+                                <span id="selected-dept-label">
+                                    ${this.selectedDept === 'AUTO' ? 'Auto-detect (Recommended)' :
+                this.selectedDept === 'NEW' ? '+ Add New Department' : this.selectedDept}
+                                </span>
+                                <i data-lucide="${this.deptDropdownOpen ? 'chevron-up' : 'chevron-down'}"></i>
+                            </div>
+                            <div class="custom-select-options ${this.deptDropdownOpen ? 'show' : ''}">
+                                <div class="custom-select-option ${this.selectedDept === 'AUTO' ? 'selected' : ''}" onclick="window.app.selectDept('AUTO')">Auto-detect (Recommended)</div>
+                                <div class="custom-select-optgroup">Select Folder</div>
+                                ${Array.from(allAvailableDepts).sort().map(d => `
+                                    <div class="custom-select-option ${this.selectedDept === d ? 'selected' : ''}" onclick="window.app.selectDept('${d}')">${d}</div>
+                                `).join('')}
+                                <div class="custom-select-option custom-select-special" onclick="window.app.selectDept('NEW')">+ Add New Department</div>
+                            </div>
+                        </div>
                     </div>
                     <button onclick="window.app.handleAddStudent()" class="btn-primary-custom" style="padding: 1rem 2rem;">ADD STUDENT</button>
                 </div>
@@ -845,10 +858,9 @@ export class App {
         if (btn) btn.disabled = true;
 
         // Determine department
-        const sd_el = document.getElementById('sd');
-        let department = sd_el.value;
+        let department = this.selectedDept;
 
-        if (department === 'AUTO') {
+        if (department === 'AUTO' || department === 'NEW') {
             const deptCode = sr_val.substring(6, 9);
             if (deptCode === "107") department = "CYBER SECURITY";
             else if (deptCode === "202") department = "AIML";
@@ -1044,35 +1056,35 @@ export class App {
         });
     }
 
-    handleDeptSelect(el) {
-        if (el.value === 'NEW') {
+    toggleDeptDropdown(e) {
+        if (e) e.stopPropagation();
+        this.deptDropdownOpen = !this.deptDropdownOpen;
+        this.renderContent();
+
+        if (this.deptDropdownOpen) {
+            const closeHandler = () => {
+                this.deptDropdownOpen = false;
+                this.renderContent();
+                document.removeEventListener('click', closeHandler);
+            };
+            setTimeout(() => document.addEventListener('click', closeHandler), 10);
+        }
+    }
+
+    selectDept(val) {
+        if (val === 'NEW') {
             const newDept = prompt("Enter New Department Name:");
             if (newDept && newDept.trim()) {
                 const deptName = newDept.trim().toUpperCase();
-
-                // Check if already exists in list
-                let exists = false;
-                for (let i = 0; i < el.options.length; i++) {
-                    if (el.options[i].value === deptName) {
-                        el.selectedIndex = i;
-                        exists = true;
-                        break;
-                    }
-                }
-
-                if (!exists) {
-                    const option = document.createElement('option');
-                    option.value = deptName;
-                    option.textContent = deptName;
-                    const optgroup = el.querySelector('optgroup');
-                    if (optgroup) optgroup.appendChild(option);
-                    else el.insertBefore(option, el.lastElementChild);
-                    el.value = deptName;
-                }
+                this.selectedDept = deptName;
             } else {
-                el.value = 'AUTO';
+                this.selectedDept = 'AUTO';
             }
+        } else {
+            this.selectedDept = val;
         }
+        this.deptDropdownOpen = false;
+        this.renderContent();
     }
 
     togglePasswordVisibility(inputId = 'student-pass-input', iconId = 'toggle-pass-icon') {

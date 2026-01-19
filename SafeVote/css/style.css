@@ -739,3 +739,117 @@ p {
         transform: translateY(0) scale(1);
     }
 }
+
+/* Custom Dropdown */
+.custom-select-container {
+    position: relative;
+    width: 100%;
+}
+
+.custom-select-trigger {
+    width: 100%;
+    padding: 1rem;
+    border: 2px solid var(--card-border);
+    border-radius: 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    background: var(--card-bg);
+    color: var(--text-main);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.custom-select-trigger:hover {
+    border-color: var(--primary);
+}
+
+.custom-select-trigger.active {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px var(--primary-light);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.custom-select-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--card-bg);
+    border: 2px solid var(--primary);
+    border-top: none;
+    border-bottom-left-radius: 1rem;
+    border-bottom-right-radius: 1rem;
+    box-shadow: var(--shadow-lg);
+    z-index: 50;
+    max-height: 250px;
+    overflow-y: auto;
+    display: none;
+}
+
+.custom-select-options.show {
+    display: block;
+}
+
+.custom-select-option {
+    padding: 0.8rem 1.2rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text-main);
+}
+
+.custom-select-option:hover {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+.custom-select-option.selected {
+    background: var(--primary);
+    color: white;
+}
+
+.custom-select-optgroup {
+    padding: 0.8rem 1.2rem;
+    font-size: 0.7rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    background: rgba(0, 0, 0, 0.02);
+    border-top: 1px solid var(--card-border);
+    border-bottom: 1px solid var(--card-border);
+}
+
+.custom-select-special {
+    color: var(--primary);
+    border-top: 1px solid var(--card-border);
+}
+
+.custom-select-special:hover {
+    background: var(--primary);
+    color: white;
+}
+
+/* Scrollbar for custom dropdown */
+.custom-select-options::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-select-options::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-select-options::-webkit-scrollbar-thumb {
+    background: var(--card-border);
+    border-radius: 10px;
+}
+
+.custom-select-options::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
