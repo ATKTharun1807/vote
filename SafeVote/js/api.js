@@ -35,6 +35,12 @@ export class VotingAPI {
         this.startPolling();
     }
 
+    getAuthHeaders() {
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.#adminKey) headers['X-Admin-Key'] = this.#adminKey;
+        return headers;
+    }
+
     async initAuth() {
         try {
             await this.syncData();
@@ -173,7 +179,7 @@ export class VotingAPI {
         try {
             const res = await fetch(`${this.baseUrl}/api/students/reset-password`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this.getAuthHeaders(),
                 body: JSON.stringify({ regNo: parseInt(vid), newPassword: newPass })
             });
             await this.syncData();
@@ -186,7 +192,7 @@ export class VotingAPI {
     async updateAdminKey(newKey) {
         const res = await fetch(`${this.baseUrl}/api/config/update`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: this.getAuthHeaders(),
             body: JSON.stringify({ adminKey: newKey })
         });
         await this.syncData();
@@ -229,7 +235,7 @@ export class VotingAPI {
     async updateStatus(s) {
         await fetch(`${this.baseUrl}/api/config/update`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: this.getAuthHeaders(),
             body: JSON.stringify({ electionStatus: s })
         });
         this.electionStatus = s;
@@ -239,7 +245,7 @@ export class VotingAPI {
     async updateElectionName(name) {
         await fetch(`${this.baseUrl}/api/config/update`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: this.getAuthHeaders(),
             body: JSON.stringify({ electionName: name })
         });
         this.electionName = name;
@@ -249,7 +255,7 @@ export class VotingAPI {
     async addCandidate(name, party) {
         const res = await fetch(`${this.baseUrl}/api/candidates/add`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: this.getAuthHeaders(),
             body: JSON.stringify({ name, party })
         });
         await this.syncData();
@@ -257,7 +263,10 @@ export class VotingAPI {
     }
 
     async deleteCandidate(id) {
-        await fetch(`${this.baseUrl}/api/candidates/${id}`, { method: 'DELETE' });
+        await fetch(`${this.baseUrl}/api/candidates/${id}`, {
+            method: 'DELETE',
+            headers: this.getAuthHeaders()
+        });
         await this.syncData();
     }
 
@@ -268,7 +277,7 @@ export class VotingAPI {
 
             const res = await fetch(`${this.baseUrl}/api/students/add`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this.getAuthHeaders(),
                 body: JSON.stringify({ regNo: parsedRegNo, name, password, department })
             });
 
@@ -286,7 +295,10 @@ export class VotingAPI {
     }
 
     async deleteStudent(id) {
-        await fetch(`${this.baseUrl}/api/students/${id}`, { method: 'DELETE' });
+        await fetch(`${this.baseUrl}/api/students/${id}`, {
+            method: 'DELETE',
+            headers: this.getAuthHeaders()
+        });
         await this.syncData();
     }
 

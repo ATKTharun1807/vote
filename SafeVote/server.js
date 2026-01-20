@@ -70,6 +70,21 @@ const Candidate = mongoose.model('Candidate', CandidateSchema);
 const Blockchain = mongoose.model('Blockchain', BlockchainSchema);
 const Config = mongoose.model('Config', ConfigSchema);
 
+// Admin Auth Middleware
+const authAdmin = async (req, res, next) => {
+    const key = req.headers['x-admin-key'];
+    try {
+        const config = await Config.findOne({ type: 'main' }).lean();
+        if (config && config.adminKey === key) {
+            next();
+        } else {
+            res.status(401).json({ error: "Unauthorized Administrative Access" });
+        }
+    } catch (e) {
+        res.status(500).json({ error: "Auth Check Failed" });
+    }
+};
+
 app.use(cors());
 app.use(express.json());
 
@@ -106,9 +121,8 @@ app.get('/api/sync', async (req, res) => {
             });
         }
 
-        const candidates = await Candidate.find({}).lean();
         const blockchain = await Blockchain.find({}).sort({ index: 1 }).lean();
-        const students = await Student.find({}).lean();
+        const studentCount = await Student.countDocuments({});
         let config = await Config.findOne({ type: 'main' }).lean();
 
         if (!config) {
@@ -118,35 +132,37 @@ app.get('/api/sync', async (req, res) => {
         const isAdmin = config.adminKey === key;
         const electionEnded = config.electionStatus === 'ENDED';
 
-        // Security: Deep clone and strip sensitive fields
-        const safeConfig = JSON.parse(JSON.stringify(config));
-        delete safeConfig.adminKey;
+        // Security: Strip internal database fields and sensitive keys
+        const safeConfig = {
+            electionName: config.electionName,
+            electionStatus: config.electionStatus,
+            startTime: config.startTime,
+            endTime: config.endTime,
+            allowedDepartments: config.allowedDepartments || []
+        };
 
-        // Hide votes if not admin and election hasn't ended
-        const safeCandidates = candidates.map(c => {
-            const candidate = JSON.parse(JSON.stringify(c));
-            if (!isAdmin && !electionEnded) {
-                delete candidate.votes;
-            }
-            return candidate;
-        });
 
-        // Sanitized Blockchain: Hide candidate choice until ended or for admin
+
+        // Sanitized Blockchain: Remove DB metadata and hide choice until ended
         const safeBlockchain = blockchain.map(b => {
-            if (isAdmin || electionEnded) return b;
-            const block = JSON.parse(JSON.stringify(b));
-            if (block.data) {
-                block.data.candidateId = "HIDDEN_UNTIL_END";
-            }
+            const block = {
+                index: b.index,
+                timestamp: b.timestamp,
+                hash: b.hash,
+                previousHash: b.previousHash,
+                data: {
+                    voterHash: b.data?.voterHash,
+                    candidateId: (isAdmin || electionEnded) ? b.data?.candidateId : "HIDDEN_UNTIL_END"
+                }
+            };
             return block;
         });
 
-        // Student list is now handled via separate endpoint for better visibility control
-        // isAdmin check still used for candidate votes and blockchain data masking
+        // Student list and Candidate list are now separate endpoints for security and speed
 
         res.json({
             blockchain: safeBlockchain,
-            totalStudents: students.length,
+            totalStudents: studentCount,
             config: safeConfig,
             authenticated: isAdmin
         });
@@ -167,9 +183,13 @@ app.get('/api/students/list', async (req, res) => {
 
         const students = await Student.find({}).lean();
         const safeStudents = students.map(s => {
-            const student = { ...s };
-            delete student.password;
-            return student;
+            return {
+                id: s._id,
+                regNo: s.regNo,
+                name: s.name,
+                department: s.department,
+                hasVoted: s.hasVoted
+            };
         });
         res.json(safeStudents);
     } catch (e) {
@@ -187,19 +207,17 @@ app.get('/api/candidates/list', async (req, res) => {
         const electionEnded = config && config.electionStatus === 'ENDED';
 
         const safeCandidates = candidates.map(c => {
-            if (isAdmin) {
-                // Return everything for admin but rename _id for consistency
-                return { ...c, id: c._id };
-            }
-            // For voters, strictly hide internal DB fields and votes
             const obj = {
                 id: c._id,
                 name: c.name,
                 party: c.party
             };
-            if (electionEnded) {
+
+            // Admins see votes always, voters only when ended
+            if (isAdmin || electionEnded) {
                 obj.votes = c.votes;
             }
+
             return obj;
         });
         res.json(safeCandidates);
@@ -229,9 +247,13 @@ app.post('/api/students/verify', async (req, res) => {
     try {
         const student = await Student.findOne({ regNo, password }).lean();
         if (student) {
-            const safeStudent = { ...student };
-            delete safeStudent.password;
-            res.json(safeStudent);
+            res.json({
+                id: student._id,
+                regNo: student.regNo,
+                name: student.name,
+                department: student.department,
+                hasVoted: student.hasVoted
+            });
         }
         else res.sendStatus(401);
     } catch (e) {
@@ -242,8 +264,18 @@ app.post('/api/students/verify', async (req, res) => {
 // Student Password Reset
 app.post('/api/students/reset-password', async (req, res) => {
     const { regNo, newPassword } = req.body;
+    const key = req.headers['x-admin-key'];
+
     try {
-        console.log(`🔑 Attempting password reset for ID: ${regNo}`);
+        const config = await Config.findOne({ type: 'main' }).lean();
+        const isAdmin = config && config.adminKey === key;
+
+        // SECURITY: For now, only allow reset via authenticated Admin
+        // (In future: Add currentPassword verification for students)
+        if (!isAdmin) {
+            return res.status(401).json({ error: "Administrative privilege required for reset" });
+        }
+
         const reg = parseInt(regNo);
         if (isNaN(reg)) throw new Error("Invalid Registration Number");
 
@@ -263,7 +295,7 @@ app.post('/api/students/reset-password', async (req, res) => {
 });
 
 // Add Student
-app.post('/api/students/add', async (req, res) => {
+app.post('/api/students/add', authAdmin, async (req, res) => {
     const { regNo, name, password } = req.body;
     try {
         const exists = await Student.findOne({ regNo });
@@ -283,7 +315,7 @@ app.post('/api/students/add', async (req, res) => {
 });
 
 // Delete Student
-app.delete('/api/students/:id', async (req, res) => {
+app.delete('/api/students/:id', authAdmin, async (req, res) => {
     try {
         await Student.findByIdAndDelete(req.params.id);
         res.sendStatus(200);
@@ -293,7 +325,7 @@ app.delete('/api/students/:id', async (req, res) => {
 });
 
 // Update Config
-app.post('/api/config/update', async (req, res) => {
+app.post('/api/config/update', authAdmin, async (req, res) => {
     const updates = req.body;
     try {
         await Config.updateOne({ type: 'main' }, { $set: updates }, { upsert: true });
@@ -304,7 +336,7 @@ app.post('/api/config/update', async (req, res) => {
 });
 
 // Add Candidate
-app.post('/api/candidates/add', async (req, res) => {
+app.post('/api/candidates/add', authAdmin, async (req, res) => {
     const { name, party } = req.body;
     try {
         await Candidate.create({ name, party, votes: 0 });
@@ -315,7 +347,7 @@ app.post('/api/candidates/add', async (req, res) => {
 });
 
 // Delete Candidate
-app.delete('/api/candidates/:id', async (req, res) => {
+app.delete('/api/candidates/:id', authAdmin, async (req, res) => {
     try {
         await Candidate.findByIdAndDelete(req.params.id);
         res.sendStatus(200);
@@ -375,7 +407,7 @@ app.post('/api/vote', async (req, res) => {
 });
 
 // Reset All
-app.post('/api/reset-all', async (req, res) => {
+app.post('/api/reset-all', authAdmin, async (req, res) => {
     try {
         await Candidate.updateMany({}, { $set: { votes: 0 } });
         await Blockchain.deleteMany({});
