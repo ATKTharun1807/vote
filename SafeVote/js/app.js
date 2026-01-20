@@ -1,5 +1,4 @@
 import { api } from './api.js';
-import { STUDENT_DATABASE } from './data.js';
 
 export class App {
     constructor() {
@@ -133,16 +132,9 @@ export class App {
         if (!pass) return this.showToast("Please enter your password", "error");
 
         // Try verifying with API (MongoDB)
-        const isValid = await api.verifyStudent(val, pass);
-        if (!isValid) {
-            return this.showToast("Invalid ID or Password", "error");
-        }
-
-        // Find student details from local sync
-        let student = api.localStudents.find(s => s.regNo.toString() === val);
+        const student = await api.verifyStudent(val, pass);
         if (!student) {
-            // Fallback lookup if not in local list yet
-            student = { name: `Voter ${val}`, regNo: val };
+            return this.showToast("Invalid ID or Password", "error");
         }
 
         this.role = 'voter';
@@ -467,7 +459,7 @@ export class App {
 
     renderAdminTab(container) {
         const turnoutCount = api.totalVotersCount;
-        const totalStudents = api.localStudents.length || STUDENT_DATABASE.length;
+        const totalStudents = api.totalRegisteredStudents;
         const turnoutPercent = totalStudents ? ((turnoutCount / totalStudents) * 100).toFixed(1) : 0;
 
         let html = `
@@ -688,7 +680,6 @@ export class App {
 
         let html = `
             <div style="display:flex; gap:1rem; align-items:center; justify-content:center; margin-bottom:2rem;">
-                <button onclick="window.app.handleImportStudents()" class="btn-primary-custom" style="background:var(--card-bg); color:var(--text-main); border:1px solid var(--card-border); padding:0.4rem 1rem; font-size:0.75rem; text-transform:none;">Import Students</button>
                 <div style="background:var(--primary-light); color:var(--primary); padding: 0.4rem 1rem; border-radius: 99px; font-weight: 800; font-size:0.8rem;">
                     ${api.localStudents.length} Students
                 </div>
@@ -830,27 +821,6 @@ export class App {
         } else {
             this.showToast("Failed to update password", "error");
         }
-    }
-
-    async handleImportStudents() {
-        if (!confirm(`Import all ${STUDENT_DATABASE.length} students from local database? This may take a moment.`)) return;
-
-        this.showToast("Importing students...", "info");
-        let count = 0;
-        for (const s of STUDENT_DATABASE) {
-            const exists = api.localStudents.find(ls => ls.regNo === s.regNo);
-            if (!exists) {
-                let dept = "OTHERS";
-                const deptCode = s.regNo.toString().substring(6, 9);
-                if (deptCode === "107") dept = "CYBER SECURITY";
-                else if (deptCode === "202") dept = "AIML";
-
-                await api.addStudent(s.regNo, s.name, "atkboss", dept);
-                count++;
-            }
-        }
-        this.showToast(`Imported ${count} new students!`, "success");
-        this.renderContent();
     }
 
     async handleAddStudent() {

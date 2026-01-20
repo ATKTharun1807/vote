@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const port = process.env.PORT || 8081;
@@ -34,7 +35,7 @@ const StudentSchema = new mongoose.Schema({
     regNo: { type: Number, required: true, unique: true },
     name: String,
     department: { type: String, default: 'CYBER SECURITY' },
-    password: { type: String, default: 'atkboss' },
+    password: { type: String, required: true },
     hasVoted: { type: Boolean, default: false },
     addedAt: { type: Date, default: Date.now }
 });
@@ -117,13 +118,13 @@ app.get('/api/sync', async (req, res) => {
         const isAdmin = config.adminKey === key;
         const electionEnded = config.electionStatus === 'ENDED';
 
-        // Security: Remove sensitive fields before sending to client
-        const safeConfig = { ...config };
+        // Security: Deep clone and strip sensitive fields
+        const safeConfig = JSON.parse(JSON.stringify(config));
         delete safeConfig.adminKey;
 
         // Hide votes if not admin and election hasn't ended
         const safeCandidates = candidates.map(c => {
-            const candidate = { ...c };
+            const candidate = JSON.parse(JSON.stringify(c));
             if (!isAdmin && !electionEnded) {
                 delete candidate.votes;
             }
@@ -133,23 +134,28 @@ app.get('/api/sync', async (req, res) => {
         // Sanitized Blockchain: Hide candidate choice until ended or for admin
         const safeBlockchain = blockchain.map(b => {
             if (isAdmin || electionEnded) return b;
-            const block = { ...b };
+            const block = JSON.parse(JSON.stringify(b));
             if (block.data) {
-                block.data = { ...block.data, candidateId: "HIDDEN_UNTIL_END" };
+                block.data.candidateId = "HIDDEN_UNTIL_END";
             }
             return block;
         });
 
+        // Hide student list from regular users
+        let safeStudents = [];
+        if (isAdmin) {
+            safeStudents = students.map(s => {
+                const student = { ...s };
+                delete student.password;
+                return student;
+            });
+        }
+
         res.json({
             candidates: safeCandidates,
             blockchain: safeBlockchain,
-            students: students.map(s => ({
-                regNo: s.regNo,
-                name: s.name,
-                department: s.department,
-                hasVoted: s.hasVoted,
-                _id: s._id
-            })),
+            students: safeStudents,
+            totalStudents: students.length,
             config: safeConfig
         });
     } catch (e) {
@@ -177,8 +183,12 @@ app.post('/api/admin/verify', async (req, res) => {
 app.post('/api/students/verify', async (req, res) => {
     const { regNo, password } = req.body;
     try {
-        const student = await Student.findOne({ regNo, password });
-        if (student) res.sendStatus(200);
+        const student = await Student.findOne({ regNo, password }).lean();
+        if (student) {
+            const safeStudent = { ...student };
+            delete safeStudent.password;
+            res.json(safeStudent);
+        }
         else res.sendStatus(401);
     } catch (e) {
         res.status(500).send(e.message);
@@ -219,7 +229,7 @@ app.post('/api/students/add', async (req, res) => {
             regNo,
             name,
             department: req.body.department || 'CYBER SECURITY',
-            password: password || 'atkboss',
+            password: password || 'REPLACE_ME',
             hasVoted: false
         });
         res.sendStatus(200);

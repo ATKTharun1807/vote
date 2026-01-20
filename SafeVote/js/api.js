@@ -2,14 +2,10 @@
 export class VotingAPI {
     constructor() {
         // --- PRODUCTION CONFIGURATION ---
-        // 1. Host your server.js on Render.com or Railway.app
-        // 2. Paste your cloud server URL here (e.g., 'https://your-app.onrender.com')
         this.productionUrl = '';
-
         this.baseUrl = this.productionUrl;
         this.adminKey = null; // Session-based key
 
-        // Auto-detect Localhost or Local Network
         if (!this.productionUrl) {
             const isLocal = window.location.hostname === 'localhost' ||
                 window.location.hostname === '127.0.0.1' ||
@@ -27,6 +23,7 @@ export class VotingAPI {
         this.localCandidates = [];
         this.localBlockchain = [];
         this.localStudents = [];
+        this.totalRegisteredStudents = 0;
         this.totalVotersCount = 0;
         this.voterIds = [];
         this.isLive = false;
@@ -58,13 +55,13 @@ export class VotingAPI {
             this.localStudents = data.students || [];
             this.electionName = data.config.electionName;
             this.electionStatus = data.config.electionStatus;
-            // this.adminKey = data.config.adminKey; // Security: Key is now server-side only
             this.startTime = data.config.startTime;
             this.endTime = data.config.endTime;
             this.allowedDepartments = data.config.allowedDepartments || [];
 
             this.voterIds = this.localStudents.filter(s => s.hasVoted).map(s => s.regNo.toString());
             this.totalVotersCount = this.voterIds.length;
+            this.totalRegisteredStudents = data.totalStudents || 0;
             this.isLive = true;
 
             if (window.app) window.app.refreshUI();
@@ -82,7 +79,6 @@ export class VotingAPI {
             console.error("Sync Error:", e);
             this.isLive = false;
 
-            // Try to load from backup if server is down
             const backup = localStorage.getItem('safevote_backup');
             if (backup) {
                 const data = JSON.parse(backup);
@@ -96,7 +92,7 @@ export class VotingAPI {
 
     startPolling() {
         if (this.refreshInterval) clearInterval(this.refreshInterval);
-        this.refreshInterval = setInterval(() => this.syncData(), 3000); // 3-second refresh
+        this.refreshInterval = setInterval(() => this.syncData(), 3000);
     }
 
     async verifyAdmin(key) {
@@ -119,9 +115,12 @@ export class VotingAPI {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ regNo: parseInt(vid), password: pass })
             });
-            return res.ok;
+            if (res.ok) {
+                return await res.json();
+            }
+            return null;
         } catch (e) {
-            return false;
+            return null;
         }
     }
 
@@ -151,8 +150,6 @@ export class VotingAPI {
 
     async castVote(vid, cid) {
         const last = this.localBlockchain[this.localBlockchain.length - 1] || { hash: "0", index: -1 };
-
-        // Hash the voter ID for the ledger privacy
         const voterHash = await this.hashID(vid.toString());
 
         const block = {
@@ -177,12 +174,11 @@ export class VotingAPI {
     }
 
     async hashID(id) {
-        // Simple but secure enough hashing using SubtleCrypto
         const msgUint8 = new TextEncoder().encode(id + "safevote_salt_2024");
         const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        return hashHex.substring(0, 20); // Show partial hash
+        return hashHex.substring(0, 20);
     }
 
     async updateStatus(s) {
@@ -202,7 +198,6 @@ export class VotingAPI {
             body: JSON.stringify({ electionName: name })
         });
         this.electionName = name;
-        document.title = `${name} - SafeVote`;
         await this.syncData();
     }
 
