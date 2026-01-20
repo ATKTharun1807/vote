@@ -57,7 +57,7 @@ const BlockchainSchema = new mongoose.Schema({
 
 const ConfigSchema = new mongoose.Schema({
     type: { type: String, default: 'main', unique: true },
-    electionName: { type: String, default: 'Student Council Election' },
+    electionName: { type: String, default: 'Chief Minister Election' },
     electionStatus: { type: String, default: 'NOT_STARTED' },
     adminKey: { type: String, default: 'admin123' },
     startTime: { type: Date, default: null },
@@ -159,13 +159,18 @@ app.get('/api/sync', async (req, res) => {
         });
 
         // Student list and Candidate list are now separate endpoints for security and speed
-
-        res.json({
-            blockchain: safeBlockchain,
-            totalStudents: studentCount,
+        // Regular voters ONLY get the config and auth status to minimize network footprint
+        const responseData = {
             config: safeConfig,
             authenticated: isAdmin
-        });
+        };
+
+        if (isAdmin || electionEnded) {
+            responseData.totalStudents = studentCount;
+            responseData.blockchain = safeBlockchain;
+        }
+
+        res.json(responseData);
     } catch (e) {
         console.error("❌ Sync Route Error:", e.name, e.message);
         res.status(500).json({ error: e.message });
@@ -206,9 +211,10 @@ app.get('/api/candidates/list', async (req, res) => {
         const isAdmin = config && config.adminKey === key;
         const electionEnded = config && config.electionStatus === 'ENDED';
 
-        const safeCandidates = candidates.map(c => {
+        const safeCandidates = candidates.map((c, idx) => {
             const obj = {
-                id: c._id,
+                // If not admin and election not ended, provide a session-based ID
+                id: (isAdmin || electionEnded) ? c._id : `cnd_${idx + 1}`,
                 name: c.name,
                 party: c.party
             };
@@ -387,15 +393,27 @@ app.post('/api/vote', async (req, res) => {
             return res.status(400).json({ error: "Election has already ended." });
         }
 
-        const candidate = await Candidate.findById(candidateId);
+        let candidate;
+        if (candidateId.startsWith('cnd_')) {
+            // Map index back to real ID for voters
+            const idx = parseInt(candidateId.replace('cnd_', '')) - 1;
+            const allCandidates = await Candidate.find({}).sort({ addedAt: 1 });
+            candidate = allCandidates[idx];
+        } else {
+            candidate = await Candidate.findById(candidateId);
+        }
+
         if (!candidate) return res.status(404).json({ error: "Candidate not found" });
 
         // Atomic update session
         await Student.updateOne({ regNo }, { $set: { hasVoted: true } });
-        await Candidate.findByIdAndUpdate(candidateId, { $inc: { votes: 1 } });
+        await Candidate.findByIdAndUpdate(candidate._id, { $inc: { votes: 1 } });
 
-        // Ensure data is saved in Blockchain
-        const newBlock = new Blockchain(block);
+        // Ensure data is saved in Blockchain (Use real ID in blockchain for audit integrity)
+        const blockWithRealId = { ...block };
+        if (blockWithRealId.data) blockWithRealId.data.candidateId = candidate._id;
+
+        const newBlock = new Blockchain(blockWithRealId);
         await newBlock.save();
 
         console.log(`✅ Vote Recorded: ${student.name} -> ${candidate.name}`);
