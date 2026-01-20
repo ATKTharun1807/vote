@@ -1,10 +1,11 @@
 // MongoDB Atlas / NeDB API Provider for SafeVote
 export class VotingAPI {
+    #adminKey = null; // Session-based key (Private)
+
     constructor() {
         // --- PRODUCTION CONFIGURATION ---
         this.productionUrl = '';
         this.baseUrl = this.productionUrl;
-        this.adminKey = null; // Session-based key
 
         if (!this.productionUrl) {
             const isLocal = window.location.hostname === 'localhost' ||
@@ -46,7 +47,7 @@ export class VotingAPI {
     async syncData() {
         try {
             const headers = {};
-            if (this.adminKey) headers['X-Admin-Key'] = this.adminKey;
+            if (this.#adminKey) headers['X-Admin-Key'] = this.#adminKey;
 
             const res = await fetch(`${this.baseUrl}/api/sync`, { headers });
             if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
@@ -118,10 +119,10 @@ export class VotingAPI {
     }
 
     async fetchStudents() {
-        if (!this.adminKey) return [];
+        if (!this.#adminKey) return [];
         try {
             const res = await fetch(`${this.baseUrl}/api/students/list`, {
-                headers: { 'X-Admin-Key': this.adminKey }
+                headers: { 'X-Admin-Key': this.#adminKey }
             });
             if (res.ok) {
                 this.localStudents = await res.json();
@@ -273,9 +274,20 @@ export class VotingAPI {
         await this.syncData();
     }
 
+    get isAdmin() {
+        return !!this.#adminKey;
+    }
+
+    setAdminKey(key) {
+        this.#adminKey = key;
+    }
+
     async resetElection() {
         if (confirm("Reset everything? All names, candidates, and votes will be cleared.")) {
-            const res = await fetch(`${this.baseUrl}/api/reset-all`, { method: 'POST' });
+            const res = await fetch(`${this.baseUrl}/api/reset-all`, {
+                method: 'POST',
+                headers: { 'X-Admin-Key': this.#adminKey }
+            });
             await this.syncData();
             return res.ok;
         }
@@ -284,4 +296,3 @@ export class VotingAPI {
 }
 
 export const api = new VotingAPI();
-window.api = api;

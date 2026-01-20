@@ -161,7 +161,7 @@ export class App {
         const isValid = await api.verifyAdmin(val);
         if (isValid) {
             this.role = 'admin';
-            api.adminKey = val;
+            api.setAdminKey(val);
             this.currentUser = { name: "System Administrator", regNo: "N/A" };
             this.enterDashboard();
         } else {
@@ -187,7 +187,7 @@ export class App {
     logout() {
         this.role = null;
         this.currentUser = null;
-        api.adminKey = null;
+        api.setAdminKey(null);
         this.showHome();
     }
 
