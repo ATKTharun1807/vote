@@ -38,6 +38,7 @@ export class VotingAPI {
     async initAuth() {
         try {
             await this.syncData();
+            await this.fetchCandidates();
             return this.isLive;
         } catch (e) {
             return false;
@@ -53,9 +54,8 @@ export class VotingAPI {
             if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
             const data = await res.json();
 
-            this.localCandidates = data.candidates || [];
             this.localBlockchain = data.blockchain || [];
-            // Note: localStudents is NOT updated here to keep the heartbeat response small and hidden
+            // Note: localStudents and localCandidates are NOT updated here to keep the heartbeat response hidden
             this.electionName = data.config.electionName;
             this.electionStatus = data.config.electionStatus;
             this.startTime = data.config.startTime;
@@ -130,6 +130,22 @@ export class VotingAPI {
                 this.voterIds = this.localStudents.filter(s => s.hasVoted).map(s => s.regNo.toString());
                 this.totalVotersCount = this.voterIds.length;
                 return this.localStudents;
+            }
+            return [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    async fetchCandidates() {
+        try {
+            const headers = {};
+            if (this.#adminKey) headers['X-Admin-Key'] = this.#adminKey;
+
+            const res = await fetch(`${this.baseUrl}/api/candidates/list`, { headers });
+            if (res.ok) {
+                this.localCandidates = await res.json();
+                return this.localCandidates;
             }
             return [];
         } catch (e) {

@@ -162,6 +162,8 @@ export class App {
         if (isValid) {
             this.role = 'admin';
             api.setAdminKey(val);
+            // After setting the key, fetch the full candidate data (with votes)
+            await api.fetchCandidates();
             this.currentUser = { name: "System Administrator", regNo: "N/A" };
             this.enterDashboard();
         } else {
@@ -876,6 +878,7 @@ export class App {
         if (confirm(`Are you sure you want to remove candidate: ${name}?`)) {
             await api.deleteCandidate(id);
             this.showToast(`Candidate ${name} removed`);
+            await api.fetchCandidates(); // Refresh list to update state
             this.renderContent();
         }
     }
@@ -1204,11 +1207,14 @@ export class App {
         }
 
         if (n && p) {
-            api.addCandidate(n, p).then(() => {
+            api.addCandidate(n, p).then(async () => {
                 this.showToast("Candidate Added!");
+                await api.fetchCandidates(); // Refresh list
                 this.renderContent();
-                document.getElementById('cn').value = '';
-                document.getElementById('cp').value = '';
+                const cn = document.getElementById('cn');
+                const cp = document.getElementById('cp');
+                if (cn) cn.value = '';
+                if (cp) cp.value = '';
             }).catch(err => {
                 this.showToast("Error saving: " + (err.message || "Unknown error"), "error");
             });
@@ -1360,5 +1366,7 @@ export class App {
 }
 
 window.app = new App();
-window.api = api;
-window.app.init();
+// Initial page load
+api.initAuth().then(() => {
+    window.app.renderContent();
+});

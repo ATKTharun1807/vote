@@ -145,7 +145,6 @@ app.get('/api/sync', async (req, res) => {
         // isAdmin check still used for candidate votes and blockchain data masking
 
         res.json({
-            candidates: safeCandidates,
             blockchain: safeBlockchain,
             totalStudents: students.length,
             config: safeConfig,
@@ -173,6 +172,37 @@ app.get('/api/students/list', async (req, res) => {
             return student;
         });
         res.json(safeStudents);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Candidate List
+app.get('/api/candidates/list', async (req, res) => {
+    try {
+        const candidates = await Candidate.find({}).lean();
+        const config = await Config.findOne({ type: 'main' }).lean();
+        const key = req.headers['x-admin-key'];
+        const isAdmin = config && config.adminKey === key;
+        const electionEnded = config && config.electionStatus === 'ENDED';
+
+        const safeCandidates = candidates.map(c => {
+            if (isAdmin) {
+                // Return everything for admin but rename _id for consistency
+                return { ...c, id: c._id };
+            }
+            // For voters, strictly hide internal DB fields and votes
+            const obj = {
+                id: c._id,
+                name: c.name,
+                party: c.party
+            };
+            if (electionEnded) {
+                obj.votes = c.votes;
+            }
+            return obj;
+        });
+        res.json(safeCandidates);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
