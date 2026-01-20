@@ -202,17 +202,17 @@ export class App {
         });
     }
 
-    switchTab(tabId) {
+    async switchTab(tabId) {
         if (tabId === 'results' && this.role !== 'admin' && api.electionStatus !== 'ENDED') {
             return this.showToast("Results available after election ends", "error");
         }
 
-        // Don't switch to vote tab if results are being shown or if election hasn't started and user is voter
-        if (tabId === 'vote' && this.role === 'voter' && (api.electionStatus === 'NOT_STARTED' || api.electionStatus === 'WAIT')) {
-            // Allow switching to vote tab but it will show "Waiting" message
-        }
-
         this.activeTab = tabId;
+
+        // If switching to students tab, fetch the data first
+        if (tabId === 'students' && this.role === 'admin') {
+            await api.fetchStudents();
+        }
 
         const tabs = ['vote', 'admin', 'students', 'results', 'blockchain', 'guide'];
         tabs.forEach(t => {
@@ -817,6 +817,7 @@ export class App {
         const success = await api.updateStudentPassword(regNo, newPass.trim());
         if (success) {
             this.showToast(`Password updated for ${studentName}`);
+            await api.fetchStudents(); // Refresh list to update state
             this.renderContent();
         } else {
             this.showToast("Failed to update password", "error");
@@ -847,15 +848,15 @@ export class App {
 
         if (res.success) {
             this.showToast("Student Registered!");
+            await api.fetchStudents(); // Refresh list to update state
             this.renderContent();
-            // Inputs are cleared by re-render, but manually clearing just in case
+        } else {  // Inputs are cleared by re-render, but manually clearing just in case
             const sn = document.getElementById('sn');
             const sr = document.getElementById('sr');
             const sp = document.getElementById('sp');
             if (sn) sn.value = '';
             if (sr) sr.value = '';
             if (sp) sp.value = '';
-        } else {
             this.showToast(res.message || "Failed to add student", "error");
         }
 
@@ -864,11 +865,11 @@ export class App {
 
 
     async handleDeleteStudent(id, name) {
-        if (confirm(`Are you sure you want to remove student: ${name}?`)) {
-            await api.deleteStudent(id);
-            this.showToast(`Student ${name} removed`);
-            this.renderContent();
-        }
+        if (!confirm(`Permanently delete ${name}?`)) return;
+        await api.deleteStudent(id);
+        this.showToast(`${name} removed`);
+        await api.fetchStudents(); // Refresh list to update state
+        this.renderContent();
     }
 
     async handleDeleteCandidate(id, name) {

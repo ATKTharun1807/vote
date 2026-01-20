@@ -95,7 +95,7 @@ app.get('/api/health', (req, res) => {
 // Sync Data
 app.get('/api/sync', async (req, res) => {
     console.log("📥 Incoming Sync Request");
-    const { key } = req.query;
+    const key = req.headers['x-admin-key'];
 
     try {
         if (mongoose.connection.readyState !== 1) {
@@ -141,25 +141,39 @@ app.get('/api/sync', async (req, res) => {
             return block;
         });
 
-        // Hide student list from regular users
-        let safeStudents = [];
-        if (isAdmin) {
-            safeStudents = students.map(s => {
-                const student = { ...s };
-                delete student.password;
-                return student;
-            });
-        }
+        // Student list is now handled via separate endpoint for better visibility control
+        // isAdmin check still used for candidate votes and blockchain data masking
 
         res.json({
             candidates: safeCandidates,
             blockchain: safeBlockchain,
-            students: safeStudents,
             totalStudents: students.length,
-            config: safeConfig
+            config: safeConfig,
+            authenticated: isAdmin
         });
     } catch (e) {
         console.error("❌ Sync Route Error:", e.name, e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Authorized Student List
+app.get('/api/students/list', async (req, res) => {
+    const key = req.headers['x-admin-key'];
+    try {
+        const config = await Config.findOne({ type: 'main' }).lean();
+        if (!config || config.adminKey !== key) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const students = await Student.find({}).lean();
+        const safeStudents = students.map(s => {
+            const student = { ...s };
+            delete student.password;
+            return student;
+        });
+        res.json(safeStudents);
+    } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });

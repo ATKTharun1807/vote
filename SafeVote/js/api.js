@@ -45,22 +45,31 @@ export class VotingAPI {
 
     async syncData() {
         try {
-            const url = this.adminKey ? `${this.baseUrl}/api/sync?key=${this.adminKey}` : `${this.baseUrl}/api/sync`;
-            const res = await fetch(url);
+            const headers = {};
+            if (this.adminKey) headers['X-Admin-Key'] = this.adminKey;
+
+            const res = await fetch(`${this.baseUrl}/api/sync`, { headers });
             if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
             const data = await res.json();
 
             this.localCandidates = data.candidates || [];
             this.localBlockchain = data.blockchain || [];
-            this.localStudents = data.students || [];
+            // Note: localStudents is NOT updated here to keep the heartbeat response small and hidden
             this.electionName = data.config.electionName;
             this.electionStatus = data.config.electionStatus;
             this.startTime = data.config.startTime;
             this.endTime = data.config.endTime;
             this.allowedDepartments = data.config.allowedDepartments || [];
 
-            this.voterIds = this.localStudents.filter(s => s.hasVoted).map(s => s.regNo.toString());
-            this.totalVotersCount = this.voterIds.length;
+            // Update voter status list if we have student data (from separate fetch)
+            if (this.localStudents && this.localStudents.length > 0) {
+                this.voterIds = this.localStudents.filter(s => s.hasVoted).map(s => s.regNo.toString());
+                this.totalVotersCount = this.voterIds.length;
+            } else {
+                // Fallback: If we don't have the list, at least the count is safe
+                // But we can't accurately map voter IDs without the list
+            }
+
             this.totalRegisteredStudents = data.totalStudents || 0;
             this.isLive = true;
 
@@ -105,6 +114,25 @@ export class VotingAPI {
             return res.ok;
         } catch (e) {
             return false;
+        }
+    }
+
+    async fetchStudents() {
+        if (!this.adminKey) return [];
+        try {
+            const res = await fetch(`${this.baseUrl}/api/students/list`, {
+                headers: { 'X-Admin-Key': this.adminKey }
+            });
+            if (res.ok) {
+                this.localStudents = await res.json();
+                // Update voter IDs helper based on fresh student list
+                this.voterIds = this.localStudents.filter(s => s.hasVoted).map(s => s.regNo.toString());
+                this.totalVotersCount = this.voterIds.length;
+                return this.localStudents;
+            }
+            return [];
+        } catch (e) {
+            return [];
         }
     }
 
