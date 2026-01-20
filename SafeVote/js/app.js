@@ -298,6 +298,19 @@ export class App {
 
         if (window.lucide) window.lucide.createIcons();
 
+        // Premium Date Picker Initialization
+        if (this.activeTab === 'admin' && window.flatpickr) {
+            const config = {
+                enableTime: true,
+                dateFormat: "Y-m-d H:i",
+                altInput: true,
+                altFormat: "F j, Y at H:i",
+                time_24hr: true,
+                disableMobile: "true"
+            };
+            window.flatpickr("#sched-start", config);
+            window.flatpickr("#sched-end", config);
+        }
         // Restore focus and cursor position for search bar
         if (isSearchFocused) {
             const newSearch = document.getElementById('candidate-search');
@@ -574,11 +587,11 @@ export class App {
                     </div>
                     <div class="form-group">
                         <label class="form-label">Start Date & Time</label>
-                        <input type="datetime-local" id="sched-start" class="form-input" value="${api.startTime ? new Date(api.startTime).toISOString().slice(0, 16) : ''}">
+                        <input type="text" id="sched-start" class="form-input" placeholder="Select Start Time..." value="${api.startTime ? new Date(api.startTime).toISOString().slice(0, 16) : ''}">
                     </div>
                     <div class="form-group">
                         <label class="form-label">End Date & Time</label>
-                        <input type="datetime-local" id="sched-end" class="form-input" value="${api.endTime ? new Date(api.endTime).toISOString().slice(0, 16) : ''}">
+                        <input type="text" id="sched-end" class="form-input" placeholder="Select End Time..." value="${api.endTime ? new Date(api.endTime).toISOString().slice(0, 16) : ''}">
                     </div>
                 </div>
                 
