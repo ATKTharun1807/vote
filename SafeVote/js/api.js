@@ -31,8 +31,7 @@ export class VotingAPI {
         this.startTime = null;
         this.endTime = null;
         this.allowedDepartments = [];
-
-        this.startPolling();
+        this.refreshInterval = null;
     }
 
     getAuthHeaders() {
@@ -44,8 +43,9 @@ export class VotingAPI {
     async initAuth() {
         try {
             await this.syncData();
-            await this.fetchCandidates();
-            return this.isLive;
+            // Note: Polling is NO LONGER started here to keep dev tools clean
+            // It will be started by App.js after a successful login
+            return true;
         } catch (e) {
             return false;
         }
@@ -56,9 +56,12 @@ export class VotingAPI {
             const headers = {};
             if (this.#adminKey) headers['X-Admin-Key'] = this.#adminKey;
 
-            const res = await fetch(`${this.baseUrl}/api/sync`, { headers });
+            const res = await fetch(`${this.baseUrl}/api/v1/session`, { headers });
             if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
-            const data = await res.json();
+            const envelope = await res.json();
+
+            // Decode the masked payload
+            const data = this.#decode(envelope.p);
 
             this.localBlockchain = data.blockchain || [];
             // Note: localStudents and localCandidates are NOT updated here to keep the heartbeat response hidden
@@ -111,6 +114,13 @@ export class VotingAPI {
         this.refreshInterval = setInterval(() => this.syncData(), 3000);
     }
 
+    stopPolling() {
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = null;
+        }
+    }
+
     async verifyAdmin(key) {
         try {
             const res = await fetch(`${this.baseUrl}/api/admin/verify`, {
@@ -125,13 +135,13 @@ export class VotingAPI {
     }
 
     async fetchStudents() {
-        if (!this.#adminKey) return [];
         try {
             const res = await fetch(`${this.baseUrl}/api/students/list`, {
-                headers: { 'X-Admin-Key': this.#adminKey }
+                headers: this.getAuthHeaders()
             });
             if (res.ok) {
-                this.localStudents = await res.json();
+                const envelope = await res.json();
+                this.localStudents = this.#decode(envelope.p);
                 // Update voter IDs helper based on fresh student list
                 this.voterIds = this.localStudents.filter(s => s.hasVoted).map(s => s.regNo.toString());
                 this.totalVotersCount = this.voterIds.length;
@@ -150,13 +160,20 @@ export class VotingAPI {
 
             const res = await fetch(`${this.baseUrl}/api/candidates/list`, { headers });
             if (res.ok) {
-                this.localCandidates = await res.json();
+                const envelope = await res.json();
+                this.localCandidates = this.#decode(envelope.p);
                 return this.localCandidates;
             }
             return [];
         } catch (e) {
             return [];
         }
+    }
+
+    #decode(p) {
+        try {
+            return JSON.parse(atob(p));
+        } catch (e) { return null; }
     }
 
     async verifyStudent(vid, pass) {

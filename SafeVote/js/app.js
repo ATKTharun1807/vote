@@ -175,6 +175,7 @@ export class App {
         this.toggleView('dashboard-view');
         this.updateNav();
         this.switchTab(this.role === 'admin' ? 'admin' : 'vote');
+        api.startPolling(); // Activation only after login
     }
 
     updateNav() {
@@ -190,6 +191,7 @@ export class App {
         this.role = null;
         this.currentUser = null;
         api.setAdminKey(null);
+        api.stopPolling(); // Termination of background activity
         this.showHome();
     }
 

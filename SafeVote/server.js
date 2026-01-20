@@ -107,32 +107,22 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Sync Data
-app.get('/api/sync', async (req, res) => {
-    console.log("📥 Incoming Sync Request");
+// Obfuscated Session Check (formerly Sync)
+app.get('/api/v1/session', async (req, res) => {
     const key = req.headers['x-admin-key'];
 
     try {
         if (mongoose.connection.readyState !== 1) {
-            return res.status(503).json({
-                error: "Database not connected",
-                state: mongoose.connection.readyState,
-                tip: "Make sure your IP is whitelisted in MongoDB Atlas or wait for connection."
-            });
+            return res.status(503).json({ error: "Database offline" });
         }
 
-        const blockchain = await Blockchain.find({}).sort({ index: 1 }).lean();
-        const studentCount = await Student.countDocuments({});
         let config = await Config.findOne({ type: 'main' }).lean();
-
-        if (!config) {
-            config = await Config.create({ type: 'main' });
-        }
+        if (!config) config = await Config.create({ type: 'main' });
 
         const isAdmin = config.adminKey === key;
         const electionEnded = config.electionStatus === 'ENDED';
 
-        // Security: Strip internal database fields and sensitive keys
+        // Security: Strip internal database fields
         const safeConfig = {
             electionName: config.electionName,
             electionStatus: config.electionStatus,
@@ -141,39 +131,33 @@ app.get('/api/sync', async (req, res) => {
             allowedDepartments: config.allowedDepartments || []
         };
 
+        const responseData = {
+            config: safeConfig,
+            authenticated: isAdmin
+        };
 
-
-        // Sanitized Blockchain: Remove DB metadata and hide choice until ended
-        const safeBlockchain = blockchain.map(b => {
-            const block = {
+        // Deep Security: Only fetch/return sensitive data if authorized or finished
+        if (isAdmin || electionEnded) {
+            responseData.totalStudents = await Student.countDocuments({});
+            const blockchain = await Blockchain.find({}).sort({ index: 1 }).lean();
+            responseData.blockchain = blockchain.map(b => ({
                 index: b.index,
                 timestamp: b.timestamp,
                 hash: b.hash,
                 previousHash: b.previousHash,
                 data: {
                     voterHash: b.data?.voterHash,
-                    candidateId: (isAdmin || electionEnded) ? b.data?.candidateId : "HIDDEN_UNTIL_END"
+                    candidateId: (isAdmin || electionEnded) ? b.data?.candidateId : "HIDDEN"
                 }
-            };
-            return block;
-        });
-
-        // Student list and Candidate list are now separate endpoints for security and speed
-        // Regular voters ONLY get the config and auth status to minimize network footprint
-        const responseData = {
-            config: safeConfig,
-            authenticated: isAdmin
-        };
-
-        if (isAdmin || electionEnded) {
-            responseData.totalStudents = studentCount;
-            responseData.blockchain = safeBlockchain;
+            }));
         }
 
-        res.json(responseData);
+        // UNREADABLE PAYLOAD: Obfuscate with Base64 to hide from casual Network tab inspection
+        const masked = Buffer.from(JSON.stringify(responseData)).toString('base64');
+        res.json({ p: masked });
+
     } catch (e) {
-        console.error("❌ Sync Route Error:", e.name, e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: "Internal Error" });
     }
 });
 
@@ -187,18 +171,18 @@ app.get('/api/students/list', async (req, res) => {
         }
 
         const students = await Student.find({}).lean();
-        const safeStudents = students.map(s => {
-            return {
-                id: s._id,
-                regNo: s.regNo,
-                name: s.name,
-                department: s.department,
-                hasVoted: s.hasVoted
-            };
-        });
-        res.json(safeStudents);
+        const safeStudents = students.map(s => ({
+            id: s._id,
+            regNo: s.regNo,
+            name: s.name,
+            department: s.department,
+            hasVoted: s.hasVoted
+        }));
+
+        const masked = Buffer.from(JSON.stringify(safeStudents)).toString('base64');
+        res.json({ p: masked });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: "Access Error" });
     }
 });
 
@@ -226,9 +210,11 @@ app.get('/api/candidates/list', async (req, res) => {
 
             return obj;
         });
-        res.json(safeCandidates);
+
+        const masked = Buffer.from(JSON.stringify(safeCandidates)).toString('base64');
+        res.json({ p: masked });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: "Access Error" });
     }
 });
 
