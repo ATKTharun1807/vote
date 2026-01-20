@@ -7,6 +7,7 @@ export class VotingAPI {
         this.productionUrl = '';
 
         this.baseUrl = this.productionUrl;
+        this.adminKey = null; // Session-based key
 
         // Auto-detect Localhost or Local Network
         if (!this.productionUrl) {
@@ -23,7 +24,6 @@ export class VotingAPI {
 
         this.electionName = 'Student Council Election';
         this.electionStatus = 'NOT_STARTED';
-        this.adminKey = 'admin123';
         this.localCandidates = [];
         this.localBlockchain = [];
         this.localStudents = [];
@@ -48,7 +48,8 @@ export class VotingAPI {
 
     async syncData() {
         try {
-            const res = await fetch(`${this.baseUrl}/api/sync`);
+            const url = this.adminKey ? `${this.baseUrl}/api/sync?key=${this.adminKey}` : `${this.baseUrl}/api/sync`;
+            const res = await fetch(url);
             if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
             const data = await res.json();
 
@@ -57,7 +58,7 @@ export class VotingAPI {
             this.localStudents = data.students || [];
             this.electionName = data.config.electionName;
             this.electionStatus = data.config.electionStatus;
-            this.adminKey = data.config.adminKey;
+            // this.adminKey = data.config.adminKey; // Security: Key is now server-side only
             this.startTime = data.config.startTime;
             this.endTime = data.config.endTime;
             this.allowedDepartments = data.config.allowedDepartments || [];
@@ -98,6 +99,19 @@ export class VotingAPI {
         this.refreshInterval = setInterval(() => this.syncData(), 3000); // 3-second refresh
     }
 
+    async verifyAdmin(key) {
+        try {
+            const res = await fetch(`${this.baseUrl}/api/admin/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key })
+            });
+            return res.ok;
+        } catch (e) {
+            return false;
+        }
+    }
+
     async verifyStudent(vid, pass) {
         try {
             const res = await fetch(`${this.baseUrl}/api/students/verify`, {
@@ -131,7 +145,6 @@ export class VotingAPI {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ adminKey: newKey })
         });
-        if (res.ok) this.adminKey = newKey;
         await this.syncData();
         return res.ok;
     }

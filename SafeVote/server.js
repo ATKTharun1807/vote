@@ -71,7 +71,14 @@ const Config = mongoose.model('Config', ConfigSchema);
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));
+
+// Security: Only serve specific directories/files to prevent leaking server.js or .db files
+app.use('/css', express.static(path.join(__dirname, 'css')));
+app.use('/js', express.static(path.join(__dirname, 'js')));
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/voting.jpg', (req, res) => res.sendFile(path.join(__dirname, 'voting.jpg')));
+app.get('/assets/logo.png', (req, res) => res.sendFile(path.join(__dirname, 'assets/logo.png')));
 
 // API Endpoints
 
@@ -87,6 +94,8 @@ app.get('/api/health', (req, res) => {
 // Sync Data
 app.get('/api/sync', async (req, res) => {
     console.log("📥 Incoming Sync Request");
+    const { key } = req.query;
+
     try {
         if (mongoose.connection.readyState !== 1) {
             return res.status(503).json({
@@ -105,22 +114,62 @@ app.get('/api/sync', async (req, res) => {
             config = await Config.create({ type: 'main' });
         }
 
+        const isAdmin = config.adminKey === key;
+        const electionEnded = config.electionStatus === 'ENDED';
+
+        // Security: Remove sensitive fields before sending to client
+        const safeConfig = { ...config };
+        delete safeConfig.adminKey;
+
+        // Hide votes if not admin and election hasn't ended
+        const safeCandidates = candidates.map(c => {
+            const candidate = { ...c };
+            if (!isAdmin && !electionEnded) {
+                delete candidate.votes;
+            }
+            return candidate;
+        });
+
+        // Sanitized Blockchain: Hide candidate choice until ended or for admin
+        const safeBlockchain = blockchain.map(b => {
+            if (isAdmin || electionEnded) return b;
+            const block = { ...b };
+            if (block.data) {
+                block.data = { ...block.data, candidateId: "HIDDEN_UNTIL_END" };
+            }
+            return block;
+        });
+
         res.json({
-            candidates,
-            blockchain,
+            candidates: safeCandidates,
+            blockchain: safeBlockchain,
             students: students.map(s => ({
                 regNo: s.regNo,
                 name: s.name,
                 department: s.department,
                 hasVoted: s.hasVoted,
-                _id: s._id,
-                password: s.password
+                _id: s._id
             })),
-            config
+            config: safeConfig
         });
     } catch (e) {
         console.error("❌ Sync Route Error:", e.name, e.message);
         res.status(500).json({ error: e.message });
+    }
+});
+
+// Admin Verification (Server-side to protect key)
+app.post('/api/admin/verify', async (req, res) => {
+    const { key } = req.body;
+    try {
+        const config = await Config.findOne({ type: 'main' });
+        if (config && config.adminKey === key) {
+            res.sendStatus(200);
+        } else {
+            res.sendStatus(401);
+        }
+    } catch (e) {
+        res.status(500).send(e.message);
     }
 });
 

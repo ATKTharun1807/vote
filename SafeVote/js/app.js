@@ -155,7 +155,7 @@ export class App {
         this.enterDashboard();
     }
 
-    handleAdminLogin() {
+    async handleAdminLogin() {
         // Security check: If the URL indicates this is a student-only link, 
         // prevent admin login from here.
         const params = new URLSearchParams(window.location.search);
@@ -165,8 +165,11 @@ export class App {
 
         const input = document.getElementById('admin-key-input');
         const val = input.value.trim();
-        if (val === api.adminKey) {
+
+        const isValid = await api.verifyAdmin(val);
+        if (isValid) {
             this.role = 'admin';
+            api.adminKey = val;
             this.currentUser = { name: "System Administrator", regNo: "N/A" };
             this.enterDashboard();
         } else {
@@ -190,6 +193,9 @@ export class App {
     }
 
     logout() {
+        this.role = null;
+        this.currentUser = null;
+        api.adminKey = null;
         this.showHome();
     }
 
@@ -308,8 +314,8 @@ export class App {
 
     getWinner() {
         if (!api.localCandidates.length) return { name: "N/A", votes: 0, party: "N/A" };
-        const winner = [...api.localCandidates].reduce((a, b) => (a.votes > b.votes) ? a : b, { votes: -1, name: 'None', party: "N/A" });
-        return winner.votes > 0 ? winner : { name: "No Votes Cast", votes: 0, party: "N/A" };
+        const winner = [...api.localCandidates].reduce((a, b) => ((a.votes || 0) > (b.votes || 0)) ? a : b, { votes: -1, name: 'None', party: "N/A" });
+        return (winner.votes || 0) > 0 ? winner : { name: "No Votes Cast", votes: 0, party: "N/A" };
     }
 
     renderVoteTab(container) {
@@ -742,7 +748,7 @@ export class App {
                                         </td>
                                         <td><code>${s.regNo}</code></td>
                                         <td style="display:flex; align-items:center; gap:0.5rem;">
-                                            <span style="font-family:monospace; background:rgba(0,0,0,0.05); padding:2px 6px; border-radius:4px;">${s.password || '********'}</span>
+                                            <span style="font-family:monospace; background:rgba(0,0,0,0.05); padding:2px 6px; border-radius:4px;">••••••••</span>
                                             <button onclick="window.app.handleAdminChangePassword('${s.regNo}', '${s.name}')" style="background:none; border:none; color:var(--primary); font-size:0.6rem; font-weight:800; cursor:pointer; text-decoration:underline;">CHANGE</button>
                                         </td>
                                         <td style="text-align:center">
@@ -1103,7 +1109,7 @@ export class App {
     }
 
     renderResultsTab(container) {
-        const sorted = [...api.localCandidates].sort((a, b) => b.votes - a.votes);
+        const sorted = [...api.localCandidates].sort((a, b) => (b.votes || 0) - (a.votes || 0));
         const winner = this.getWinner();
 
         let html = `
@@ -1113,12 +1119,14 @@ export class App {
             </div>
         `;
 
+        const canSeeVotes = api.electionStatus === 'ENDED' || this.role === 'admin';
+
         if (api.electionStatus === 'ENDED') {
             html += `
                 <div class="card-custom mb-5" style="border:none; background:linear-gradient(135deg, #059669 0%, #10b981 100%); color:white; text-align:center; padding:3rem">
                     <div style="font-size:1rem; font-weight:700; opacity:0.9; text-transform:uppercase; margin-bottom:1rem">Final Result Declared</div>
                     <h1 style="margin:0; font-size:3.5rem; font-weight:900">🏆 ${winner.name}</h1>
-                    <div style="font-size:1.25rem; margin-top:1rem; font-weight:600">${winner.party} — ${winner.votes} Votes</div>
+                    <div style="font-size:1.25rem; margin-top:1rem; font-weight:600">${winner.party} — ${winner.votes || 0} Votes</div>
                     <div style="margin-top:2rem; display:inline-block; background:rgba(255,255,255,0.2); padding:0.5rem 1.5rem; border-radius:99px; font-size:0.9rem">Winner by Majority</div>
                 </div>
             `;
@@ -1126,7 +1134,9 @@ export class App {
             html += `
                 <div class="card-custom mb-5" style="background:var(--bg-main); border:none; text-align:center">
                     <h3 style="margin:0; color:var(--text-main)">Status: ${api.electionStatus}</h3>
-                    <p style="margin:0.5rem 0 0; color:var(--text-muted); font-size:0.9rem">Real-time counts will be finalized when poll closes.</p>
+                    <p style="margin:0.5rem 0 0; color:var(--text-muted); font-size:0.9rem">
+                        ${canSeeVotes ? 'Real-time counts are visible to administrators.' : 'Real-time counts will be finalized when poll closes.'}
+                    </p>
                 </div>
             `;
         }
@@ -1146,7 +1156,9 @@ export class App {
                         </div>
                     </div>
                     <div style="text-align:right">
-                        <div style="font-size:2rem; font-weight:900; color:${isWinner ? '#059669' : 'var(--primary)'}">${c.votes}</div>
+                        <div style="font-size:2rem; font-weight:900; color:${isWinner ? '#059669' : 'var(--primary)'}">
+                            ${canSeeVotes ? (c.votes || 0) : '—'}
+                        </div>
                         <small style="color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; font-weight:700">Votes</small>
                     </div>
                 </div>
