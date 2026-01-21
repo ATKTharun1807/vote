@@ -156,6 +156,7 @@ app.get('/api/v1/session', async (req, res) => {
         // Deep Security: Only fetch/return sensitive data if authorized or finished
         if (isAdmin || electionEnded) {
             responseData.totalStudents = await Student.countDocuments({});
+            responseData.votedCount = await Student.countDocuments({ hasVoted: true });
             const blockchain = await Blockchain.find({}).sort({ index: 1 }).lean();
             responseData.blockchain = blockchain.map(b => ({
                 index: b.index,

@@ -71,13 +71,15 @@ export class VotingAPI {
             this.endTime = data.config.endTime;
             this.allowedDepartments = data.config.allowedDepartments || [];
 
-            // Update voter status list if we have student data (from separate fetch)
+            // Update voter status list 
+            if (data.votedCount !== undefined) {
+                this.totalVotersCount = data.votedCount;
+            }
+
             if (this.localStudents && this.localStudents.length > 0) {
                 this.voterIds = this.localStudents.filter(s => s.hasVoted).map(s => s.regNo.toString());
-                this.totalVotersCount = this.voterIds.length;
-            } else {
-                // Fallback: If we don't have the list, at least the count is safe
-                // But we can't accurately map voter IDs without the list
+                // Only overwrite if we don't have the explicit count from server
+                if (data.votedCount === undefined) this.totalVotersCount = this.voterIds.length;
             }
 
             this.totalRegisteredStudents = data.totalStudents || 0;

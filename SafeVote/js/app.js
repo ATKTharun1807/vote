@@ -48,6 +48,20 @@ export class App {
         }
         this.setTheme(this.theme);
 
+        // Recover Session
+        const savedUser = localStorage.getItem('safevote-user');
+        const savedRole = localStorage.getItem('safevote-role');
+        const savedAdminKey = localStorage.getItem('safevote-admin-key');
+
+        if (savedUser && savedRole) {
+            this.currentUser = JSON.parse(savedUser);
+            this.role = savedRole;
+            if (savedAdminKey) api.setAdminKey(savedAdminKey);
+
+            this.enterDashboard();
+            return;
+        }
+
         // Handle URL parameters for direct linking
         const params = new URLSearchParams(window.location.search);
         const view = params.get('view');
@@ -140,11 +154,14 @@ export class App {
         this.role = 'voter';
         this.currentUser = student;
 
+        localStorage.setItem('safevote-user', JSON.stringify(student));
+        localStorage.setItem('safevote-role', 'voter');
+
         if (pass === 'atkboss') {
             this.showToast("Security Alert: Please reset your default password!", "error");
         }
 
-        this.enterDashboard();
+        await this.enterDashboard();
     }
 
     async handleAdminLogin() {
@@ -162,18 +179,30 @@ export class App {
         if (isValid) {
             this.role = 'admin';
             api.setAdminKey(val);
+            localStorage.setItem('safevote-admin-key', val);
+            localStorage.setItem('safevote-role', 'admin');
+
             // After setting the key, fetch the full candidate data (with votes)
             await api.fetchCandidates();
             this.currentUser = { name: "System Administrator", regNo: "N/A" };
-            this.enterDashboard();
+            localStorage.setItem('safevote-user', JSON.stringify(this.currentUser));
+
+            await this.enterDashboard();
         } else {
             this.showToast("Invalid Security Key", "error");
         }
     }
 
-    enterDashboard() {
+    async enterDashboard() {
         this.toggleView('dashboard-view');
         this.updateNav();
+
+        // Ensure data is synchronized immediately with the current role/key
+        await api.syncData();
+
+        // Ensure candidates are loaded for everyone
+        await api.fetchCandidates();
+
         this.switchTab(this.role === 'admin' ? 'admin' : 'vote');
         api.startPolling(); // Activation only after login
     }
@@ -192,6 +221,11 @@ export class App {
         this.currentUser = null;
         api.setAdminKey(null);
         api.stopPolling(); // Termination of background activity
+
+        localStorage.removeItem('safevote-user');
+        localStorage.removeItem('safevote-role');
+        localStorage.removeItem('safevote-admin-key');
+
         this.showHome();
     }
 
@@ -328,7 +362,7 @@ export class App {
     }
 
     renderVoteTab(container) {
-        const hasVoted = api.voterIds.includes(this.currentUser.regNo.toString());
+        const hasVoted = this.currentUser && (this.currentUser.hasVoted || api.voterIds.includes(this.currentUser.regNo.toString()));
         let html = `
             ${this.role !== 'admin' ? `
                 <div style="text-align:center; margin-bottom:2rem;">
@@ -343,6 +377,7 @@ export class App {
         const endTime = api.endTime ? new Date(api.endTime) : null;
         const isNotStartedYet = startTime && now < startTime;
         const isAlreadyEnded = endTime && now > endTime;
+        const currentStatus = api.electionStatus;
 
         if (isNotStartedYet) {
             html += `
@@ -364,7 +399,7 @@ export class App {
             return;
         }
 
-        if (isAlreadyEnded && status !== 'ENDED') {
+        if (isAlreadyEnded && currentStatus !== 'ENDED') {
             html += `
                 <div class="card-custom mb-5" style="text-align:center; padding:5rem 2rem; background:rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.2);">
                     <div style="background:rgba(239, 68, 68, 0.1); width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 2rem;">
@@ -402,13 +437,13 @@ export class App {
             }
         }
 
-        if (status === 'NOT_STARTED' || status === 'WAIT') {
+        if (currentStatus === 'NOT_STARTED' || currentStatus === 'WAIT') {
             html += `
                 <div class="card-custom mb-5" style="text-align:center; padding:5rem 2rem; background:var(--card-bg);">
                     <div style="background:var(--primary-light); width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 2rem;">
                         <i data-lucide="clock" size="40" style="color:var(--primary)"></i>
                     </div>
-                    <h2 style="margin:0; font-size:2rem; font-weight:900;">${status === 'WAIT' ? 'Election Paused' : 'Polling Pending'}</h2>
+                    <h2 style="margin:0; font-size:2rem; font-weight:900;">${currentStatus === 'WAIT' ? 'Election Paused' : 'Polling Pending'}</h2>
                     <p style="color:var(--text-muted); margin-top:1rem; max-width:400px; margin-left:auto; margin-right:auto;">
                         The election has not officially started. Please wait for the administrator to open the polls.
                     </p>
@@ -419,7 +454,7 @@ export class App {
             return;
         }
 
-        if (status === 'ENDED') {
+        if (currentStatus === 'ENDED') {
             const winner = this.getWinner();
             html += `
                 <div class="card-custom mb-5" style="border:none; background:linear-gradient(135deg, #059669 0%, #10b981 100%); color:white; text-align:center; padding:2rem">
@@ -427,6 +462,26 @@ export class App {
                     <p style="margin-top:0.5rem; opacity:0.9">Final Vote Count: ${winner.votes}</p>
                 </div>
             `;
+        }
+
+        if (hasVoted && this.role !== 'admin') {
+            html += `
+                <div class="card-custom mb-5" style="text-align:center; padding:5rem 2rem; background:rgba(16, 185, 129, 0.05); border: 2px solid #10b981;">
+                    <div style="background:#10b981; width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 2rem; color:white;">
+                        <i data-lucide="check-circle" size="40"></i>
+                    </div>
+                    <h2 style="margin:0; font-size:2rem; font-weight:900; color:#065f46;">You have already voted successfully!</h2>
+                    <p style="color:var(--text-muted); margin-top:1rem; max-width:400px; margin-left:auto; margin-right:auto;">
+                        Your participation has been securely recorded on the blockchain ledger. You can view your anonymous transaction in the <b>Digital Ledger</b> tab.
+                    </p>
+                    <div class="mt-4" style="font-size:0.9rem; color:#10b981; font-weight:800;">
+                        Thank you for exercising your right to vote.
+                    </div>
+                </div>
+            `;
+            container.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+            return;
         }
 
         if (hasVoted) {
@@ -448,7 +503,7 @@ export class App {
 
         const filtered = api.localCandidates.filter(c => c.name.toLowerCase().includes(this.searchQuery.toLowerCase()));
         filtered.forEach(c => {
-            const isEnded = status === 'ENDED';
+            const isEnded = currentStatus === 'ENDED';
             const isAdmin = this.role === 'admin';
             const disabled = isEnded || isAdmin;
 
@@ -509,13 +564,13 @@ export class App {
                         <div style="font-size:1.5rem; font-weight:900; color:var(--primary);">${api.electionStatus}</div>
                     </div>
                     <div style="display:flex; gap:0.5rem; margin-top:1rem; pt:1rem; border-top:1px solid var(--card-border);">
-                        <button onclick="api.updateStatus('ONGOING')" class="btn-primary-custom" style="flex:1; padding:0.6rem; font-size:0.75rem; text-transform:none; display:flex; align-items:center; justify-content:center; gap:0.4rem;">
+                        <button onclick="window.app.handleUpdateStatus('ONGOING')" class="btn-primary-custom" style="flex:1; padding:0.6rem; font-size:0.75rem; text-transform:none; display:flex; align-items:center; justify-content:center; gap:0.4rem;">
                             <i data-lucide="play" size="14"></i> Start
                         </button>
-                        <button onclick="api.updateStatus('WAIT')" class="btn-primary-custom" style="flex:1; padding:0.6rem; font-size:0.75rem; background:#64748b; text-transform:none; display:flex; align-items:center; justify-content:center; gap:0.4rem;">
+                        <button onclick="window.app.handleUpdateStatus('WAIT')" class="btn-primary-custom" style="flex:1; padding:0.6rem; font-size:0.75rem; background:#64748b; text-transform:none; display:flex; align-items:center; justify-content:center; gap:0.4rem;">
                             <i data-lucide="pause" size="14"></i> Wait
                         </button>
-                        <button onclick="api.updateStatus('ENDED')" class="btn-primary-custom" style="flex:1; padding:0.6rem; font-size:0.75rem; background:#ef4444; text-transform:none; display:flex; align-items:center; justify-content:center; gap:0.4rem;">
+                        <button onclick="window.app.handleUpdateStatus('ENDED')" class="btn-primary-custom" style="flex:1; padding:0.6rem; font-size:0.75rem; background:#ef4444; text-transform:none; display:flex; align-items:center; justify-content:center; gap:0.4rem;">
                             <i data-lucide="square" size="14"></i> Stop
                         </button>
                     </div>
@@ -898,6 +953,16 @@ export class App {
         }
     }
 
+    async handleUpdateStatus(status) {
+        try {
+            await api.updateStatus(status);
+            this.showToast(`Election status set to ${status}`);
+            this.renderContent();
+        } catch (e) {
+            this.showToast("Failed to update status", "error");
+        }
+    }
+
     handleUpdateName() {
         const name = document.getElementById('election-name-input').value.trim();
         if (name) {
@@ -1198,6 +1263,8 @@ export class App {
         try {
             const res = await api.castVote(this.currentUser.regNo, cid);
             if (res.success) {
+                this.currentUser.hasVoted = true;
+                localStorage.setItem('safevote-user', JSON.stringify(this.currentUser));
                 this.showToast("Your vote has been recorded!", "success");
                 this.renderContent();
             } else {
@@ -1382,6 +1449,4 @@ export class App {
 
 window.app = new App();
 // Initial page load
-api.initAuth().then(() => {
-    window.app.renderContent();
-});
+window.app.init();
