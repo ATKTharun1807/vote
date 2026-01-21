@@ -192,12 +192,12 @@ export class VotingAPI {
         }
     }
 
-    async updateStudentPassword(vid, newPass) {
+    async updateStudentPassword(vid, currentPass, newPass) {
         try {
             const res = await fetch(`${this.baseUrl}/api/students/reset-password`, {
                 method: 'POST',
                 headers: this.getAuthHeaders(),
-                body: JSON.stringify({ regNo: parseInt(vid), newPassword: newPass })
+                body: JSON.stringify({ regNo: parseInt(vid), currentPassword: currentPass, newPassword: newPass })
             });
             await this.syncData();
             return res.ok;

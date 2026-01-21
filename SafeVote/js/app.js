@@ -831,7 +831,7 @@ export class App {
         if (newPass === null) return; // Cancelled
         if (newPass.trim().length < 4) return this.showToast("Password must be at least 4 characters", "error");
 
-        const success = await api.updateStudentPassword(regNo, newPass.trim());
+        const success = await api.updateStudentPassword(regNo, null, newPass.trim());
         if (success) {
             this.showToast(`Password updated for ${studentName}`);
             await api.fetchStudents(); // Refresh list to update state
@@ -937,7 +937,7 @@ export class App {
 
         const res = await fetch(`${api.baseUrl}/api/config/update`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: api.getAuthHeaders(),
             body: JSON.stringify(data)
         });
 
@@ -1006,7 +1006,7 @@ export class App {
                 const newP = document.getElementById('modal-pass-new').value;
                 const confirmP = document.getElementById('modal-pass-confirm').value;
 
-                if (!api.verifyStudent(this.currentUser.regNo, current)) {
+                if (!(await api.verifyStudent(this.currentUser.regNo, current))) {
                     this.showToast("Current password incorrect", "error");
                     return;
                 }
@@ -1024,7 +1024,7 @@ export class App {
                 okBtn.disabled = true;
                 okBtn.textContent = "Updating...";
 
-                const success = await api.updateStudentPassword(this.currentUser.regNo, newP);
+                const success = await api.updateStudentPassword(this.currentUser.regNo, current, newP);
                 cleanup();
                 if (success) {
                     this.showToast("Password updated successfully!", "success");
@@ -1262,7 +1262,7 @@ export class App {
         doc.text(`Generated on: ${new Date().toLocaleString()}`, 20, 37);
 
         const turnoutCount = api.totalVotersCount;
-        const totalStudents = STUDENT_DATABASE.length;
+        const totalStudents = api.totalRegisteredStudents;
         const turnoutPercent = totalStudents ? ((turnoutCount / totalStudents) * 100).toFixed(1) : 0;
 
         doc.setFontSize(14);

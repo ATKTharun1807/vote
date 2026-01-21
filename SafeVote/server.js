@@ -91,10 +91,8 @@ app.use(express.json());
 // Security: Only serve specific directories/files to prevent leaking server.js or .db files
 app.use('/css', express.static(path.join(__dirname, 'css')));
 app.use('/js', express.static(path.join(__dirname, 'js')));
-app.use('/assets', express.static(path.join(__dirname, 'assets')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/voting.jpg', (req, res) => res.sendFile(path.join(__dirname, 'voting.jpg')));
-app.get('/assets/logo.png', (req, res) => res.sendFile(path.join(__dirname, 'assets/logo.png')));
 
 // API Endpoints
 
@@ -118,6 +116,25 @@ app.get('/api/v1/session', async (req, res) => {
 
         let config = await Config.findOne({ type: 'main' }).lean();
         if (!config) config = await Config.create({ type: 'main' });
+
+        // AUTO-TRANSITION LOGIC: Start/End election based on time
+        const now = new Date();
+        let needsUpdate = false;
+        const updates = {};
+
+        if (config.electionStatus === 'NOT_STARTED' && config.startTime && now >= new Date(config.startTime)) {
+            updates.electionStatus = 'ONGOING';
+            needsUpdate = true;
+        } else if (config.electionStatus === 'ONGOING' && config.endTime && now >= new Date(config.endTime)) {
+            updates.electionStatus = 'ENDED';
+            needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+            await Config.updateOne({ type: 'main' }, { $set: updates });
+            Object.assign(config, updates); // Update local object for the immediate response
+            console.log(`🕒 Auto-Transition: Election status updated to ${updates.electionStatus}`);
+        }
 
         const isAdmin = config.adminKey === key;
         const electionEnded = config.electionStatus === 'ENDED';
@@ -255,27 +272,30 @@ app.post('/api/students/verify', async (req, res) => {
 
 // Student Password Reset
 app.post('/api/students/reset-password', async (req, res) => {
-    const { regNo, newPassword } = req.body;
+    const { regNo, newPassword, currentPassword } = req.body;
     const key = req.headers['x-admin-key'];
 
     try {
-        const config = await Config.findOne({ type: 'main' }).lean();
-        const isAdmin = config && config.adminKey === key;
-
-        // SECURITY: For now, only allow reset via authenticated Admin
-        // (In future: Add currentPassword verification for students)
-        if (!isAdmin) {
-            return res.status(401).json({ error: "Administrative privilege required for reset" });
-        }
-
         const reg = parseInt(regNo);
         if (isNaN(reg)) throw new Error("Invalid Registration Number");
 
-        const result = await Student.updateOne({ regNo: reg }, { $set: { password: newPassword } });
+        const config = await Config.findOne({ type: 'main' }).lean();
+        const isAdmin = config && config.adminKey === key;
 
-        if (result.matchedCount === 0) {
-            console.warn(`⚠️ Student ${regNo} not found in 'students' collection.`);
-            return res.status(404).json({ error: "Student not found in database." });
+        if (isAdmin) {
+            // Admin can reset without current password
+            await Student.updateOne({ regNo: reg }, { $set: { password: newPassword } });
+        } else if (currentPassword) {
+            // Student can reset if they provide correct current password
+            const result = await Student.updateOne(
+                { regNo: reg, password: currentPassword },
+                { $set: { password: newPassword } }
+            );
+            if (result.matchedCount === 0) {
+                return res.status(401).json({ error: "Current password incorrect" });
+            }
+        } else {
+            return res.status(401).json({ error: "Unauthorized: Admin key or current password required" });
         }
 
         console.log(`✅ Password updated successfully for ${regNo}`);
