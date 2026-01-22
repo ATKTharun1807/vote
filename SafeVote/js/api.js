@@ -335,6 +335,9 @@ export class VotingAPI {
                 method: 'POST',
                 headers: { 'X-Admin-Key': this.#adminKey }
             });
+            if (res.ok) {
+                localStorage.removeItem('safevote_backup');
+            }
             await this.syncData();
             return res.ok;
         }

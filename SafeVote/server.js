@@ -434,10 +434,18 @@ app.post('/api/vote', async (req, res) => {
 // Reset All
 app.post('/api/reset-all', authAdmin, async (req, res) => {
     try {
-        await Candidate.updateMany({}, { $set: { votes: 0 } });
+        await Candidate.deleteMany({});
         await Blockchain.deleteMany({});
         await Student.updateMany({}, { $set: { hasVoted: false } });
-        await Config.updateOne({ type: 'main' }, { $set: { electionStatus: 'NOT_STARTED' } });
+        await Config.updateOne({ type: 'main' }, {
+            $set: {
+                electionStatus: 'NOT_STARTED',
+                startTime: null,
+                endTime: null,
+                allowedDepartments: [],
+                electionName: 'Chief Minister Election'
+            }
+        });
         res.sendStatus(200);
     } catch (e) {
         res.status(500).send(e.message);
