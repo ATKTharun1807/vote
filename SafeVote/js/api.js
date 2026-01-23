@@ -63,6 +63,15 @@ export class VotingAPI {
             // Decode the masked payload
             const data = this.#decode(envelope.p);
 
+            // Session validation: If we sent a key but the server says we're not authenticated, 
+            // it means the key is invalid or has been changed.
+            if (this.#adminKey && data.authenticated === false) {
+                console.warn("Session invalid or Admin Key changed. Logging out...");
+                this.#adminKey = null;
+                if (window.app) window.app.logout();
+                return;
+            }
+
             this.localBlockchain = data.blockchain || [];
             // Note: localStudents and localCandidates are NOT updated here to keep the heartbeat response hidden
             this.electionName = data.config.electionName;
@@ -330,7 +339,7 @@ export class VotingAPI {
     }
 
     async resetElection() {
-        if (confirm("Reset everything? All names, candidates, and votes will be cleared.")) {
+        if (confirm("Reset election? This will clear all votes and student activity, but keep the current candidates at zero votes.")) {
             const res = await fetch(`${this.baseUrl}/api/reset-all`, {
                 method: 'POST',
                 headers: { 'X-Admin-Key': this.#adminKey }

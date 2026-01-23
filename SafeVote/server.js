@@ -434,7 +434,7 @@ app.post('/api/vote', async (req, res) => {
 // Reset All
 app.post('/api/reset-all', authAdmin, async (req, res) => {
     try {
-        await Candidate.deleteMany({});
+        await Candidate.updateMany({}, { $set: { votes: 0 } });
         await Blockchain.deleteMany({});
         await Student.updateMany({}, { $set: { hasVoted: false } });
         await Config.updateOne({ type: 'main' }, {

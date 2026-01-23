@@ -15,6 +15,7 @@ export class App {
         this.searchTimeout = null;
         this.isUserTyping = false;
         this.typingTimeout = null;
+        this.sessionTimeout = 3600000; // 1 Hour session timeout
     }
 
     onSearchInput(val, id) {
@@ -101,18 +102,28 @@ export class App {
         }
         this.setTheme(this.theme);
 
-        // Recover Session
+        // Recover Session with Inactivity Check
         const savedUser = localStorage.getItem('safevote-user');
         const savedRole = localStorage.getItem('safevote-role');
         const savedAdminKey = localStorage.getItem('safevote-admin-key');
+        const lastActive = localStorage.getItem('safevote-last-active');
 
-        if (savedUser && savedRole) {
+        const now = Date.now();
+        const isExpired = lastActive && (now - parseInt(lastActive)) > this.sessionTimeout;
+
+        if (savedUser && savedRole && !isExpired) {
             this.currentUser = JSON.parse(savedUser);
             this.role = savedRole;
             if (savedAdminKey) api.setAdminKey(savedAdminKey);
 
+            // Update activity on recovery
+            localStorage.setItem('safevote-last-active', now.toString());
+
             this.enterDashboard();
             return;
+        } else if (isExpired) {
+            console.log("Session expired due to inactivity.");
+            this.logout(); // This clears localStorage
         }
 
         // Handle URL parameters for direct linking
@@ -250,6 +261,9 @@ export class App {
         this.toggleView('dashboard-view');
         this.updateNav();
 
+        // Mark active session
+        localStorage.setItem('safevote-last-active', Date.now().toString());
+
         // Ensure data is synchronized immediately with the current role/key
         await api.syncData();
 
@@ -278,6 +292,7 @@ export class App {
         localStorage.removeItem('safevote-user');
         localStorage.removeItem('safevote-role');
         localStorage.removeItem('safevote-admin-key');
+        localStorage.removeItem('safevote-last-active');
 
         this.showHome();
     }
@@ -351,6 +366,11 @@ export class App {
             if (liveTabs.includes(this.activeTab)) {
                 this.renderContent();
             }
+        }
+
+        // Keep session alive while browser tab is open and app is polling/active
+        if (this.role) {
+            localStorage.setItem('safevote-last-active', Date.now().toString());
         }
 
         // Update Election Name on Home screen if active
