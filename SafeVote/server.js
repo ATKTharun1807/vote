@@ -393,7 +393,6 @@ app.delete('/api/candidates/:id', authAdmin, async (req, res) => {
 // Cast Vote
 app.post('/api/vote', async (req, res) => {
     const { regNo, candidateId, block } = req.body;
-    console.log(`🗳️ Vote Attempt: Student ${regNo} for Candidate ${candidateId}`);
 
     try {
         const config = await Config.findOne({ type: 'main' });
@@ -444,7 +443,6 @@ app.post('/api/vote', async (req, res) => {
         const newBlock = new Blockchain(blockWithRealId);
         await newBlock.save();
 
-        console.log(`✅ Vote Recorded: ${student.name} -> ${candidate.name}`);
         res.sendStatus(200);
     } catch (e) {
         console.error("❌ Vote Process Error:", e.message);
