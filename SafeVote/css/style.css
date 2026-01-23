@@ -108,8 +108,61 @@ p {
 }
 
 .card-custom:hover {
-    transform: translateY(-5px);
-    box-shadow: var(--shadow-lg);
+    transform: translateY(-8px);
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    border-color: var(--primary);
+}
+
+/* Premium Search UI */
+.search-premium-container {
+    position: relative;
+    max-width: 500px;
+    width: 100%;
+    margin: 0 auto 3.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.search-mini-icon {
+    position: absolute;
+    left: 1.25rem;
+    color: var(--text-muted);
+    width: 20px;
+    height: 20px;
+    pointer-events: none;
+    z-index: 2;
+    transition: all 0.3s ease;
+}
+
+.search-premium-container:focus-within .search-mini-icon {
+    color: var(--primary);
+    transform: scale(1.1);
+}
+
+.search-premium-input {
+    width: 100%;
+    padding: 1.1rem 1.1rem 1.1rem 3.5rem;
+    background: var(--card-bg);
+    border: 2px solid var(--card-border);
+    border-radius: 1.25rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-main);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-sm);
+}
+
+.search-premium-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: #fff;
+    box-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.2), 0 0 0 5px var(--primary-light);
+    transform: translateY(-2px);
+}
+
+/* Eye Protection Theme Specific Search adjustment */
+[data-theme="eye-protection"] .search-premium-input:focus {
+    background: #fff;
     border-color: var(--primary);
 }
 

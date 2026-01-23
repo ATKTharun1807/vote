@@ -12,6 +12,59 @@ export class App {
         this.expandedDepts = {};
         this.selectedDept = 'AUTO';
         this.deptDropdownOpen = false;
+        this.searchTimeout = null;
+        this.isUserTyping = false;
+        this.typingTimeout = null;
+    }
+
+    onSearchInput(val, id) {
+        this.searchQuery = val;
+        this.activeSearchId = id;
+        this.isUserTyping = true;
+        this.applySearchFilter();
+        if (this.typingTimeout) clearTimeout(this.typingTimeout);
+        this.typingTimeout = setTimeout(() => {
+            this.isUserTyping = false;
+        }, 2000);
+    }
+
+    applySearchFilter() {
+        const query = this.searchQuery.trim().toLowerCase();
+
+        if (this.activeTab === 'vote') {
+            const items = document.querySelectorAll('.searchable-candidate');
+            let hasMatches = false;
+            items.forEach(el => {
+                const searchStr = (el.getAttribute('data-search') || "").toLowerCase();
+                const match = searchStr.includes(query);
+                el.style.display = match ? 'flex' : 'none';
+                if (match) hasMatches = true;
+            });
+            const noRes = document.getElementById('vote-no-results');
+            if (noRes) noRes.style.display = (items.length > 0 && !hasMatches) ? 'block' : 'none';
+        }
+
+        if (this.activeTab === 'admin') {
+            const rows = document.querySelectorAll('.searchable-candidate-row');
+            rows.forEach(row => {
+                const searchStr = (row.getAttribute('data-search') || "").toLowerCase();
+                const match = searchStr.includes(query);
+                row.style.display = match ? '' : 'none';
+            });
+        }
+
+        if (this.activeTab === 'students') {
+            document.querySelectorAll('.student-dept-folder').forEach(folder => {
+                let folderMatch = false;
+                folder.querySelectorAll('.searchable-student-row').forEach(row => {
+                    const searchStr = (row.getAttribute('data-search') || "").toLowerCase();
+                    const match = searchStr.includes(query);
+                    row.style.display = match ? '' : 'none';
+                    if (match) folderMatch = true;
+                });
+                folder.style.display = (folderMatch || !query) ? 'block' : 'none';
+            });
+        }
     }
 
     toggleDept(dept) {
@@ -246,6 +299,7 @@ export class App {
         }
 
         this.activeTab = tabId;
+        this.searchQuery = ""; // Reset search when switching tabs to avoid confusion
 
         // If switching to students tab, fetch the data first
         if (tabId === 'students' && this.role === 'admin') {
@@ -288,8 +342,9 @@ export class App {
         const isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
         const overlay = document.getElementById('modal-overlay');
         const modalVisible = overlay && !overlay.classList.contains('hidden');
+        const isUserActive = isTyping || this.isUserTyping;
 
-        if (this.role && !isTyping && !modalVisible) {
+        if (this.role && !isUserActive && !modalVisible) {
             // Only auto-refresh for public displays (Vote/Results/Blockchain)
             // Management tabs (Admin/Students) shouldn't flicker while being used
             const liveTabs = ['vote', 'results', 'blockchain'];
@@ -308,7 +363,12 @@ export class App {
     renderContent() {
         const container = document.getElementById('content-area');
         if (!container) return;
-        container.innerHTML = '';
+
+        // Skip re-render if user is currently typing to prevent jumping
+        // Unless it's a manual call from tab switch or action
+        if (this.isUserTyping && document.activeElement && document.activeElement.id.includes('search')) {
+            return;
+        }
 
         const adminTab = document.getElementById('tab-admin');
         const studentsTab = document.getElementById('tab-students');
@@ -320,8 +380,10 @@ export class App {
 
         // Capture focus state for search bar preservation
         const activeEl = document.activeElement;
-        const isSearchFocused = activeEl && activeEl.id === 'candidate-search';
-        const selectionStart = isSearchFocused ? activeEl.selectionStart : null;
+        const isSearchFocused = activeEl && activeEl.id && activeEl.id.includes('search');
+        const selectionStart = (isSearchFocused && activeEl.setSelectionRange) ? activeEl.selectionStart : null;
+        const selectionEnd = (isSearchFocused && activeEl.setSelectionRange) ? activeEl.selectionEnd : null;
+        const activeId = activeEl ? activeEl.id : null;
 
         if (this.activeTab === 'vote') this.renderVoteTab(container);
         else if (this.activeTab === 'admin') this.renderAdminTab(container);
@@ -346,13 +408,19 @@ export class App {
             window.flatpickr("#sched-end", config);
         }
         // Restore focus and cursor position for search bar
-        if (isSearchFocused) {
-            const newSearch = document.getElementById('candidate-search');
-            if (newSearch) {
-                newSearch.focus();
-                newSearch.setSelectionRange(selectionStart, selectionStart);
-            }
+        if (isSearchFocused && activeId) {
+            setTimeout(() => {
+                const el = document.getElementById(activeId);
+                if (el) {
+                    el.focus();
+                    if (el.setSelectionRange && selectionStart !== null) {
+                        el.setSelectionRange(selectionStart, selectionEnd);
+                    }
+                }
+            }, 0);
         }
+
+        this.applySearchFilter();
     }
 
     getWinner() {
@@ -494,30 +562,39 @@ export class App {
         }
 
         html += `
-            <div class="mb-5" style="position:relative; max-width:400px; width:100%">
-                <i data-lucide="search" style="position:absolute; left:1rem; top:50%; transform:translateY(-50%); color:var(--text-muted); width:18px;"></i>
-                <input type="text" id="candidate-search" oninput="window.app.searchQuery=this.value;window.app.renderContent()" placeholder="Search candidates..." class="form-input" style="padding-left:3rem;" value="${this.searchQuery}">
+            <div class="search-premium-container">
+                <i data-lucide="search" class="search-mini-icon"></i>
+                <input type="text" id="candidate-search" oninput="window.app.onSearchInput(this.value, 'candidate-search')" placeholder="Search candidates or parties..." class="search-premium-input" value="${this.searchQuery}">
             </div>
+            
+            <div id="vote-no-results" style="display:none; grid-column: 1/-1; text-align:center; padding: 4rem 2rem; background: var(--card-bg); border-radius: 1.5rem; border: 2px dashed var(--card-border); margin-bottom: 2rem;">
+                <h3 style="margin:0; opacity:0.6;">No matches found</h3>
+                <p style="margin-top:0.5rem;">Try a different name or party.</p>
+            </div>
+
             <div class="grid-responsive">
         `;
 
-        const filtered = api.localCandidates.filter(c => c.name.toLowerCase().includes(this.searchQuery.toLowerCase()));
-        filtered.forEach(c => {
-            const isEnded = currentStatus === 'ENDED';
+        api.localCandidates.forEach(c => {
+            const isEnded = api.electionStatus === 'ENDED';
             const isAdmin = this.role === 'admin';
             const disabled = isEnded || isAdmin;
+            const searchStr = `${c.name} ${c.party || 'Independent'}`;
 
             html += `
-                <div class="card-custom" style="text-align:center">
-                    <h3 style="margin:0; color:var(--text-main)">${c.name}</h3>
-                    <p style="color:var(--text-muted); font-size:0.9rem">${c.party}</p>
+                <div class="card-custom searchable-candidate" data-search="${searchStr}" style="padding: 2.5rem 1.5rem; text-align:center; display: flex; flex-direction: column; align-items: center;">
+                    <h3 style="margin:0; font-size: 1.5rem; font-weight: 800; color: var(--text-main)">${c.name}</h3>
+                    <div style="margin-top:0.5rem; background: var(--primary-light); color: var(--primary); padding: 0.25rem 0.75rem; border-radius: 99px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
+                        ${c.party || 'Independent'}
+                    </div>
+                    
                     ${isAdmin ? `
-                        <button disabled class="btn-primary-custom" style="width:100%; margin-top:1rem; opacity:0.5; background:var(--text-muted)">
+                        <button disabled class="btn-primary-custom" style="width:100%; margin-top:2.5rem; opacity:0.5; background:var(--text-muted); cursor:not-allowed;">
                             ADMIN VIEW
                         </button>
                     ` : `
-                        <button onclick="window.app.castVote('${c.id}', this)" ${disabled ? 'disabled' : ''} class="btn-primary-custom" style="width:100%; margin-top:1rem; ${hasVoted ? 'opacity:0.7' : ''}">
-                            ${hasVoted ? 'VOTED' : (isEnded ? 'ENDED' : 'VOTE')}
+                        <button onclick="window.app.castVote('${c.id}', this)" ${disabled ? 'disabled' : ''} class="btn-primary-custom" style="width:100%; margin-top:2.5rem; ${hasVoted ? 'opacity:0.6; cursor:not-allowed;' : ''}">
+                            ${hasVoted ? '<i data-lucide="check-circle" size="18" style="vertical-align:middle; margin-right:0.5rem"></i> VOTED' : (isEnded ? 'ELECTION ENDED' : 'CAST VOTE')}
                         </button>
                     `}
                 </div>
@@ -676,8 +753,12 @@ export class App {
             ` : ''}
 
             <div class="card-custom mt-5" style="padding: 0; overflow: hidden; margin-top: 3rem;">
-                <div style="padding: 1.5rem; border-bottom: 1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center">
+                <div style="padding: 1.5rem; border-bottom: 1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; gap: 1rem; flex-wrap: wrap;">
                     <h3 style="margin:0">Live Candidate List</h3>
+                    <div class="search-premium-container" style="margin: 0; max-width: 350px;">
+                        <i data-lucide="search" class="search-mini-icon" style="width:16px; height:16px; left:1rem;"></i>
+                        <input type="text" id="admin-candidate-search" oninput="window.app.onSearchInput(this.value, 'admin-candidate-search')" placeholder="Filter by name or party..." class="search-premium-input" style="padding: 0.7rem 0.7rem 0.7rem 2.8rem; font-size:0.85rem; border-radius: 0.8rem;" value="${this.searchQuery}">
+                    </div>
                     <div style="background:var(--primary-light); color:var(--primary); padding: 0.25rem 0.75rem; border-radius: 99px; font-weight: 800; font-size: 0.8rem;">${api.localCandidates.length} Candidates</div>
                 </div>
                 <table class="admin-table">
@@ -691,7 +772,7 @@ export class App {
                     <tbody>
                         ${api.localCandidates.length === 0 ? `<tr><td colspan="3" style="text-align:center; padding:3rem; color:var(--text-muted)">No candidates added yet. Use the form below.</td></tr>` : ''}
                         ${[...api.localCandidates].sort((a, b) => a.name.localeCompare(b.name)).map(c => `
-                            <tr>
+                            <tr class="searchable-candidate-row" data-search="${c.name} ${c.party}">
                                 <td><b>${c.name}</b><br><small style="color:var(--text-muted)">${c.party}</small></td>
                                 <td style="text-align:center">
                                     <span style="background:var(--primary-light); color:var(--primary); padding:0.25rem 0.75rem; border-radius:12px; font-weight:900">${c.votes}</span>
@@ -732,6 +813,7 @@ export class App {
 
     renderStudentsTab(container) {
         const studentsByDept = {};
+        const query = this.searchQuery.toLowerCase();
 
         // Group students by department
         api.localStudents.forEach(s => {
@@ -751,9 +833,13 @@ export class App {
         const departments = Object.keys(studentsByDept).sort();
 
         let html = `
-            <div style="display:flex; gap:1rem; align-items:center; justify-content:center; margin-bottom:2rem;">
-                <div style="background:var(--primary-light); color:var(--primary); padding: 0.4rem 1rem; border-radius: 99px; font-weight: 800; font-size:0.8rem;">
-                    ${api.localStudents.length} Students
+            <div style="display:flex; flex-direction: column; align-items: center; margin-bottom: 3rem;">
+                <div class="search-premium-container" style="max-width: 600px; margin-bottom: 1.5rem;">
+                    <i data-lucide="search" class="search-mini-icon"></i>
+                    <input type="text" id="admin-student-search" oninput="window.app.onSearchInput(this.value, 'admin-student-search')" placeholder="Search students by name or roll number..." class="search-premium-input" value="${this.searchQuery}">
+                </div>
+                <div style="background:var(--primary-light); color:var(--primary); padding: 0.5rem 1.25rem; border-radius: 99px; font-weight: 800; font-size:0.85rem; border: 1px solid var(--primary-light);">
+                    ${api.localStudents.length} Students registered total
                 </div>
             </div>
 
@@ -776,7 +862,7 @@ export class App {
             const isExpanded = this.expandedDepts[dept];
 
             html += `
-                <div class="card-custom mb-5" style="padding: 0; overflow: hidden; border: 2px solid var(--primary-light);">
+                <div class="card-custom mb-5 student-dept-folder" style="padding: 0; overflow: hidden; border: 2px solid var(--primary-light);">
                     <div onclick="window.app.toggleDept('${dept}')" style="padding: 1.5rem; background: var(--primary-light); display:flex; justify-content:space-between; align-items:center; cursor:pointer; transition: background 0.3s;">
                         <div style="display:flex; align-items:center; gap:0.75rem;">
                             <i data-lucide="${isExpanded ? 'folder-open' : 'folder'}" style="color:var(--primary)"></i>
@@ -804,7 +890,7 @@ export class App {
                             </thead>
                             <tbody>
                                 ${students.map(s => `
-                                    <tr>
+                                    <tr class="searchable-student-row" data-search="${s.name} ${s.regNo}">
                                         <td>
                                             <b>${s.name}</b><br>
                                             <small style="color:var(--text-muted)">${this.parseStudentId(s.regNo) || ''}</small>
@@ -1312,6 +1398,8 @@ export class App {
                 }
             });
         }
+
+        this.applySearchFilter();
     }
 
     handleDownloadPDF() {
