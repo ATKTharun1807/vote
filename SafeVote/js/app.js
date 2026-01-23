@@ -102,6 +102,11 @@ export class App {
         }
         this.setTheme(this.theme);
 
+        // Handle URL parameters for direct linking first
+        const params = new URLSearchParams(window.location.search);
+        const view = params.get('view');
+        this.studentLinkMode = (view === 'student');
+
         // Recover Session with Inactivity Check
         const savedUser = localStorage.getItem('safevote-user');
         const savedRole = localStorage.getItem('safevote-role');
@@ -111,42 +116,52 @@ export class App {
         const now = Date.now();
         const isExpired = lastActive && (now - parseInt(lastActive)) > this.sessionTimeout;
 
+        // Session recovery: Only proceed if NOT in student link mode or if the session is a voter session
         if (savedUser && savedRole && !isExpired) {
-            this.currentUser = JSON.parse(savedUser);
-            this.role = savedRole;
-            if (savedAdminKey) api.setAdminKey(savedAdminKey);
+            const tempRole = savedRole;
 
-            // Update activity on recovery
-            localStorage.setItem('safevote-last-active', now.toString());
+            // If we are in student link mode, don't auto-login as admin
+            if (this.studentLinkMode && tempRole === 'admin') {
+                console.log("Admin session detected in student link mode. Forcing student login view.");
+            } else {
+                this.currentUser = JSON.parse(savedUser);
+                this.role = tempRole;
+                if (savedAdminKey) api.setAdminKey(savedAdminKey);
 
-            this.enterDashboard();
-            return;
+                // Update activity on recovery
+                localStorage.setItem('safevote-last-active', now.toString());
+
+                this.enterDashboard();
+                return;
+            }
         } else if (isExpired) {
             console.log("Session expired due to inactivity.");
             this.logout(); // This clears localStorage
         }
 
-        // Handle URL parameters for direct linking
-        const params = new URLSearchParams(window.location.search);
-        const view = params.get('view');
-        this.studentLinkMode = (view === 'student');
-
         if (this.studentLinkMode) {
-            this.showView('student-login');
+            this.showView('student-login', false);
         } else if (view === 'admin') {
-            this.showView('admin-login');
+            this.showView('admin-login', false);
         } else {
-            this.showHome();
+            this.showHome(false);
         }
     }
 
-    showHome() {
+    showHome(updateUrl = true) {
         this.currentUser = null;
         this.role = null;
         this.toggleView('home-view');
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('home-nav').classList.remove('hidden');
         window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        if (updateUrl) {
+            const url = new URL(window.location);
+            url.searchParams.delete('view');
+            window.history.replaceState({}, '', url);
+            this.studentLinkMode = false;
+        }
     }
 
     toggleView(id) {
@@ -172,11 +187,20 @@ export class App {
         }
     }
 
-    showView(id) {
+    showView(id, updateUrl = true) {
         if (id === 'admin-login' && this.studentLinkMode) {
             return this.showToast("Access Denied: Admin portal is disabled for students.", "error");
         }
         this.toggleView(id + '-view');
+
+        if (updateUrl) {
+            const viewKey = id.replace('-login', '');
+            const url = new URL(window.location);
+            url.searchParams.set('view', viewKey);
+            window.history.pushState({}, '', url);
+            if (viewKey === 'student') this.studentLinkMode = true;
+            else if (viewKey === 'admin') this.studentLinkMode = false;
+        }
     }
 
     toggleMobileMenu(forcedState) {
@@ -263,6 +287,14 @@ export class App {
 
         // Mark active session
         localStorage.setItem('safevote-last-active', Date.now().toString());
+
+        // Clear view parameters from URL to avoid sticky student link mode on reload
+        const url = new URL(window.location);
+        if (url.searchParams.has('view')) {
+            url.searchParams.delete('view');
+            window.history.replaceState({}, '', url);
+            this.studentLinkMode = false;
+        }
 
         // Ensure data is synchronized immediately with the current role/key
         await api.syncData();
@@ -1060,6 +1092,9 @@ export class App {
     }
 
     async handleUpdateStatus(status) {
+        if (status === 'ONGOING' && api.localCandidates.length < 2) {
+            return this.showToast("Cannot start election: Minimum 2 candidates required.", "error");
+        }
         try {
             await api.updateStatus(status);
             this.showToast(`Election status set to ${status}`);

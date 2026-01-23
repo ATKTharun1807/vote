@@ -123,8 +123,13 @@ app.get('/api/v1/session', async (req, res) => {
         const updates = {};
 
         if (config.electionStatus === 'NOT_STARTED' && config.startTime && now >= new Date(config.startTime)) {
-            updates.electionStatus = 'ONGOING';
-            needsUpdate = true;
+            const candidatesCount = await Candidate.countDocuments({});
+            if (candidatesCount >= 2) {
+                updates.electionStatus = 'ONGOING';
+                needsUpdate = true;
+            } else {
+                console.log("⚠️ Auto-Transition Skipped: Minimum 2 candidates required to start polling.");
+            }
         } else if (config.electionStatus === 'ONGOING' && config.endTime && now >= new Date(config.endTime)) {
             updates.electionStatus = 'ENDED';
             needsUpdate = true;
@@ -341,10 +346,16 @@ app.delete('/api/students/:id', authAdmin, async (req, res) => {
 app.post('/api/config/update', authAdmin, async (req, res) => {
     const updates = req.body;
     try {
+        if (updates.electionStatus === 'ONGOING') {
+            const candidatesCount = await Candidate.countDocuments({});
+            if (candidatesCount < 2) {
+                return res.status(400).json({ error: "Cannot start election: Minimum 2 candidates required." });
+            }
+        }
         await Config.updateOne({ type: 'main' }, { $set: updates }, { upsert: true });
         res.sendStatus(200);
     } catch (e) {
-        res.status(500).send(e.message);
+        res.status(500).json({ error: e.message });
     }
 });
 
