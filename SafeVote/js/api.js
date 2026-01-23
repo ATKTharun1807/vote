@@ -286,8 +286,14 @@ export class VotingAPI {
             headers: this.getAuthHeaders(),
             body: JSON.stringify({ name, party })
         });
+
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to add candidate");
+        }
+
         await this.syncData();
-        return res.ok;
+        return true;
     }
 
     async deleteCandidate(id) {

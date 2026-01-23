@@ -352,10 +352,20 @@ app.post('/api/config/update', authAdmin, async (req, res) => {
 app.post('/api/candidates/add', authAdmin, async (req, res) => {
     const { name, party } = req.body;
     try {
+        // Prevent duplicate candidates (Case-insensitive check for name AND party)
+        const exists = await Candidate.findOne({
+            name: { $regex: new RegExp(`^${name}$`, "i") },
+            party: { $regex: new RegExp(`^${party}$`, "i") }
+        });
+
+        if (exists) {
+            return res.status(400).json({ error: "Candidate with this name and party already exists" });
+        }
+
         await Candidate.create({ name, party, votes: 0 });
         res.sendStatus(200);
     } catch (e) {
-        res.status(500).send(e.message);
+        res.status(500).json({ error: e.message });
     }
 });
 
