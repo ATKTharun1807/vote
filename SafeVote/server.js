@@ -3,9 +3,16 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const app = express();
 const port = process.env.PORT || 8081;
+
+// Blockchain Helper
+function calculateBlockHash(index, timestamp, data, previousHash) {
+    const stringToHash = `${index}${timestamp}${JSON.stringify(data)}${previousHash}safevote_secret_salt_2024`;
+    return crypto.createHash('sha256').update(stringToHash).digest('hex');
+}
 
 // MongoDB Connection
 // The password provided was 'siet@123'. URL encoding @ to %40 is mandatory.
@@ -398,47 +405,37 @@ app.delete('/api/candidates/:id', authAdmin, async (req, res) => {
 
 // Cast Vote
 app.post('/api/vote', async (req, res) => {
-    const { regNo, candidateId, block, deviceFingerprint } = req.body;
+    const { regNo, candidateId, voterHash, deviceFingerprint } = req.body;
 
     try {
         const config = await Config.findOne({ type: 'main' });
         if (!config || config.electionStatus !== 'ONGOING') {
-            return res.status(400).json({ error: "Election is not active. Status: " + (config ? config.electionStatus : 'Unknown') });
+            return res.status(400).json({ error: "Election is not active." });
         }
 
         const student = await Student.findOne({ regNo });
-        if (!student) return res.status(404).json({ error: "Student not found in database" });
-        if (student.hasVoted) return res.status(400).json({ error: "Student has already cast their vote" });
+        if (!student) return res.status(404).json({ error: "Student not found" });
+        if (student.hasVoted) return res.status(400).json({ error: "Already voted" });
 
         // Device-based Check
         if (deviceFingerprint) {
             const deviceExists = await VotedDevice.findOne({ fingerprint: deviceFingerprint });
             if (deviceExists) {
-                return res.status(400).json({ error: "This device (mobile/laptop) has already been used to cast a vote." });
+                return res.status(400).json({ error: "This device has already been used to cast a vote." });
             }
         } else {
-            return res.status(400).json({ error: "Security check failed: Device identification missing." });
+            return res.status(400).json({ error: "Device identification missing." });
         }
 
         // Check Department Restriction
         if (config.allowedDepartments && config.allowedDepartments.length > 0) {
             if (!config.allowedDepartments.includes(student.department)) {
-                return res.status(403).json({ error: `Election restricted to ${config.allowedDepartments.join(', ')} departments only.` });
+                return res.status(403).json({ error: `Election restricted to specific departments.` });
             }
-        }
-
-        // Check Time Restriction
-        const now = new Date();
-        if (config.startTime && now < config.startTime) {
-            return res.status(400).json({ error: "Election has not started yet. Starts at: " + config.startTime.toLocaleString() });
-        }
-        if (config.endTime && now > config.endTime) {
-            return res.status(400).json({ error: "Election has already ended." });
         }
 
         let candidate;
         if (candidateId.startsWith('cnd_')) {
-            // Map index back to real ID for voters
             const idx = parseInt(candidateId.replace('cnd_', '')) - 1;
             const allCandidates = await Candidate.find({}).sort({ addedAt: 1 });
             candidate = allCandidates[idx];
@@ -448,24 +445,77 @@ app.post('/api/vote', async (req, res) => {
 
         if (!candidate) return res.status(404).json({ error: "Candidate not found" });
 
-        // Atomic update session
+        // BLOCKCHAIN GENERATION (SERVER-SIDE)
+        // 1. Get the last block to link the chain
+        const lastBlock = await Blockchain.findOne({}).sort({ index: -1 }).lean();
+        const nextIndex = lastBlock ? lastBlock.index + 1 : 0;
+        const previousHash = lastBlock ? lastBlock.hash : "0x0000000000000000000000000000000000000000000000000000000000000000";
+        const timestamp = new Date().toISOString();
+
+        // 2. Data to be stored (Voter identity is anonymized via hash)
+        const blockData = {
+            voterHash: voterHash || "unknown",
+            candidateId: candidate._id,
+            candidateName: candidate.name
+        };
+
+        // 3. Calculate Cryptographic SHA-256 Hash
+        const hash = calculateBlockHash(nextIndex, timestamp, blockData, previousHash);
+
+        // Atomic update of voting status
         await Student.updateOne({ regNo }, { $set: { hasVoted: true } });
         await Candidate.findByIdAndUpdate(candidate._id, { $inc: { votes: 1 } });
-
-        // Store device fingerprint
         await VotedDevice.create({ fingerprint: deviceFingerprint });
 
-        // Ensure data is saved in Blockchain (Use real ID in blockchain for audit integrity)
-        const blockWithRealId = { ...block };
-        if (blockWithRealId.data) blockWithRealId.data.candidateId = candidate._id;
+        // Save the verified block to the ledger
+        const newBlock = new Blockchain({
+            index: nextIndex,
+            timestamp,
+            data: blockData,
+            previousHash,
+            hash
+        });
 
-        const newBlock = new Blockchain(blockWithRealId);
         await newBlock.save();
 
         res.sendStatus(200);
     } catch (e) {
         console.error("❌ Vote Process Error:", e.message);
-        res.status(500).json({ error: "Internal Server Error: " + e.message });
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// Verify Blockchain Integrity
+app.get('/api/blockchain/verify', authAdmin, async (req, res) => {
+    try {
+        const chain = await Blockchain.find({}).sort({ index: 1 }).lean();
+        const report = {
+            isValid: true,
+            totalBlocks: chain.length,
+            issues: []
+        };
+
+        for (let i = 0; i < chain.length; i++) {
+            const block = chain[i];
+            const previousHash = i === 0 ? "0x0000000000000000000000000000000000000000000000000000000000000000" : chain[i - 1].hash;
+
+            // Recalculate hash to check for tampering
+            const recalculatedHash = calculateBlockHash(block.index, block.timestamp, block.data, previousHash);
+
+            if (block.hash !== recalculatedHash) {
+                report.isValid = false;
+                report.issues.push(`Block #${block.index} has been tampered with! Stored hash does not match mathematical data.`);
+            }
+
+            if (i > 0 && block.previousHash !== chain[i - 1].hash) {
+                report.isValid = false;
+                report.issues.push(`Chain broken at Block #${block.index}! Link to previous block is invalid.`);
+            }
+        }
+
+        res.json(report);
+    } catch (e) {
+        res.status(500).json({ error: "Verification Failed" });
     }
 });
 

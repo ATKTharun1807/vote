@@ -228,26 +228,17 @@ export class VotingAPI {
     }
 
     async castVote(vid, cid) {
-        const last = this.localBlockchain[this.localBlockchain.length - 1] || { hash: "0", index: -1 };
-        const voterHash = await this.hashID(vid.toString());
-        const deviceFingerprint = await this.#getDeviceFingerprint();
-
-        const block = {
-            index: last.index + 1,
-            timestamp: new Date().toISOString(),
-            data: { voterHash: voterHash, candidateId: cid },
-            previousHash: last.hash,
-            hash: Math.random().toString(36).substring(2, 12)
-        };
-
         try {
+            const voterHash = await this.hashID(vid.toString());
+            const deviceFingerprint = await this.#getDeviceFingerprint();
+
             const res = await fetch(`${this.baseUrl}/api/vote`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     regNo: parseInt(vid),
                     candidateId: cid,
-                    block,
+                    voterHash,
                     deviceFingerprint
                 })
             });

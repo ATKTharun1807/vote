@@ -1364,7 +1364,21 @@ export class App {
     }
 
     renderBlockchainTab(container) {
-        let html = `<h2>Digital Ledger (Blockchain)</h2><p style="color:var(--text-muted)">${api.electionName} Immutable Logs</p><div style="border-left:4px solid var(--primary); padding-left:2rem; margin-top:2rem">`;
+        let html = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <div>
+                    <h2 style="margin:0">Digital Ledger (Blockchain)</h2>
+                    <p style="color:var(--text-muted); margin:0.25rem 0 0;">${api.electionName} Immutable Logs</p>
+                </div>
+                ${this.role === 'admin' ? `
+                    <button onclick="window.app.verifyBlockchain()" class="btn-primary-custom" style="padding: 0.5rem 1.25rem; font-size: 0.8rem; background: var(--primary); display:flex; align-items:center; gap:0.5rem;">
+                        <i data-lucide="shield-check" style="width:16px; height:16px;"></i> VERIFY LEDGER INTEGRITY
+                    </button>
+                ` : ''}
+            </div>
+            <div id="blockchain-status-alert"></div>
+            <div style="border-left:4px solid var(--primary); padding-left:2rem; margin-top:2rem">
+        `;
 
         if (api.localBlockchain.length === 0) {
             html += `<p style="padding:2rem; color:var(--text-muted)">No blocks recorded yet. Cast a vote to see the ledger.</p>`;
@@ -1380,8 +1394,8 @@ export class App {
                     </div>
                     <div style="margin:1rem 0; font-family:monospace; font-size:0.85rem;">
                         <div style="color:var(--primary); font-weight:800; margin-bottom:0.5rem">Voter (Hashed): <span style="color:var(--text-main); word-break:break-all;">${voterHash}</span></div>
-                        <div style="color:var(--text-muted);">Timestamp Hash: ${b.hash}</div>
-                        <div style="color:var(--text-muted); font-size:0.7rem; margin-top:0.25rem">Digital Chain: ${b.previousHash}</div>
+                        <div style="color:var(--text-muted);">Block Hash: <span style="color:var(--text-main); word-break:break-all;">${b.hash}</span></div>
+                        <div style="color:var(--text-muted); font-size:0.7rem; margin-top:0.25rem">Digital Chain (Prev Hash): <span style="word-break:break-all;">${b.previousHash}</span></div>
                     </div>
                 </div>
             `;
@@ -1389,6 +1403,51 @@ export class App {
         html += `</div>`;
         container.innerHTML = html;
         if (window.lucide) window.lucide.createIcons();
+    }
+
+    async verifyBlockchain() {
+        const btn = document.querySelector('button[onclick*="verifyBlockchain"]');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = 'VERIFYING...';
+
+        try {
+            const res = await fetch(`${api.baseUrl}/api/blockchain/verify`, {
+                headers: api.getAuthHeaders()
+            });
+            const report = await res.json();
+
+            const alertContainer = document.getElementById('blockchain-status-alert');
+            if (report.isValid) {
+                alertContainer.innerHTML = `
+                    <div class="card-custom" style="background:#ecfdf5; border:1px solid #10b981; color:#065f46; padding:1rem; margin-top:1rem; display:flex; align-items:center; gap:1rem;">
+                        <i data-lucide="check-circle" style="color:#10b981"></i>
+                        <div>
+                            <div style="font-weight:800;">Ledger Verified</div>
+                            <div style="font-size:0.85rem;">Mathematical integrity confirmed for ${report.totalBlocks} blocks. No tampering detected.</div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                alertContainer.innerHTML = `
+                    <div class="card-custom" style="background:#fef2f2; border:1px solid #ef4444; color:#991b1b; padding:1rem; margin-top:1rem;">
+                        <div style="display:flex; align-items:center; gap:1rem; margin-bottom:0.5rem;">
+                            <i data-lucide="alert-triangle" style="color:#ef4444"></i>
+                            <div style="font-weight:800;">LEDGER CORRUPTED!</div>
+                        </div>
+                        <ul style="font-size:0.85rem; padding-left:1.5rem;">
+                            ${report.issues.map(issue => `<li>${issue}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+            if (window.lucide) window.lucide.createIcons();
+        } catch (e) {
+            this.showToast("Verification failed", "error");
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
     }
 
     async castVote(cid, btn) {
