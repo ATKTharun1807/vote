@@ -1,6 +1,8 @@
 // MongoDB Atlas / NeDB API Provider for SafeVote
 export class VotingAPI {
     #adminKey = null; // Session-based key (Private)
+    #studentToken = null; // Secure token (Private)
+    #regNo = null; // Locked regNo (Private)
 
     constructor() {
         // --- PRODUCTION CONFIGURATION ---
@@ -15,7 +17,7 @@ export class VotingAPI {
             if (isLocal && window.location.port !== '8081') {
                 this.baseUrl = `${window.location.protocol}//${window.location.hostname}:8081`;
             } else {
-                this.baseUrl = ''; // Same origin (e.g. Render/Production)
+                this.baseUrl = '';
             }
         }
 
@@ -28,6 +30,8 @@ export class VotingAPI {
         this.totalVotersCount = 0;
         this.voterIds = [];
         this.isLive = false;
+        this.authenticated = false; // Admin auth state
+        this.isVoter = false; // Student auth state
         this.startTime = null;
         this.endTime = null;
         this.allowedDepartments = [];
@@ -37,14 +41,14 @@ export class VotingAPI {
     getAuthHeaders() {
         const headers = { 'Content-Type': 'application/json' };
         if (this.#adminKey) headers['X-Admin-Key'] = this.#adminKey;
+        if (this.#studentToken) headers['X-Student-Token'] = this.#studentToken;
+        if (this.#regNo) headers['X-Reg-No'] = this.#regNo.toString();
         return headers;
     }
 
     async initAuth() {
         try {
             await this.syncData();
-            // Note: Polling is NO LONGER started here to keep dev tools clean
-            // It will be started by App.js after a successful login
             return true;
         } catch (e) {
             return false;
@@ -53,42 +57,49 @@ export class VotingAPI {
 
     async syncData() {
         try {
-            const headers = {};
-            if (this.#adminKey) headers['X-Admin-Key'] = this.#adminKey;
-
+            const headers = this.getAuthHeaders();
             const res = await fetch(`${this.baseUrl}/api/v1/session`, { headers });
             if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
             const envelope = await res.json();
 
             // Decode the masked payload
             const data = this.#decode(envelope.p);
+            if (!data) return;
 
-            // Session validation: If we sent a key but the server says we're not authenticated, 
-            // it means the key is invalid or has been changed.
-            if (this.#adminKey && data.authenticated === false) {
-                console.warn("Session invalid or Admin Key changed. Logging out...");
+            // Strict Role Validation
+            this.authenticated = data.authenticated || false;
+            this.isVoter = data.isVoter || false;
+
+            // Session validation: If we think we're admin but server says no, logout.
+            if (this.#adminKey && !this.authenticated) {
+                console.warn("Admin Session invalid. Logging out...");
                 this.#adminKey = null;
+                if (window.app) window.app.logout();
+                return;
+            }
+
+            // Session validation: If we think we're voter but server says no, logout.
+            if (this.#studentToken && !this.isVoter) {
+                console.warn("Student Session invalid. Logging out...");
+                this.#studentToken = null;
                 if (window.app) window.app.logout();
                 return;
             }
 
             this.localBlockchain = data.blockchain || [];
             if (data.candidates) this.localCandidates = data.candidates;
-            // Note: localStudents is NOT updated here to keep the heartbeat response hidden
             this.electionName = data.config.electionName;
             this.electionStatus = data.config.electionStatus;
             this.startTime = data.config.startTime;
             this.endTime = data.config.endTime;
             this.allowedDepartments = data.config.allowedDepartments || [];
 
-            // Update voter status list 
             if (data.votedCount !== undefined) {
                 this.totalVotersCount = data.votedCount;
             }
 
             if (this.localStudents && this.localStudents.length > 0) {
                 this.voterIds = this.localStudents.filter(s => s.hasVoted).map(s => s.regNo.toString());
-                // Only overwrite if we don't have the explicit count from server
                 if (data.votedCount === undefined) this.totalVotersCount = this.voterIds.length;
             }
 
@@ -97,27 +108,17 @@ export class VotingAPI {
 
             if (window.app) window.app.refreshUI();
 
-            // Backup to localStorage
+            // Backup to localStorage (Less sensitive data only)
             localStorage.setItem('safevote_backup', JSON.stringify({
                 candidates: this.localCandidates,
                 blockchain: this.localBlockchain,
                 voters: this.voterIds,
-                students: this.localStudents,
                 config: data.config
             }));
 
         } catch (e) {
             console.error("Sync Error:", e);
             this.isLive = false;
-
-            const backup = localStorage.getItem('safevote_backup');
-            if (backup) {
-                const data = JSON.parse(backup);
-                this.localCandidates = data.candidates || [];
-                this.localStudents = data.students || [];
-                this.electionStatus = data.config?.electionStatus || 'OFFLINE';
-                if (window.app) window.app.refreshUI();
-            }
         }
     }
 
@@ -140,6 +141,10 @@ export class VotingAPI {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ key })
             });
+            if (res.ok) {
+                this.#adminKey = key;
+                await this.syncData();
+            }
             return res.ok;
         } catch (e) {
             return false;
@@ -196,7 +201,9 @@ export class VotingAPI {
                 body: JSON.stringify({ regNo: parseInt(vid), password: pass })
             });
             if (res.ok) {
-                return await res.json();
+                const data = await res.json();
+                this.setStudentSession(data.regNo, data.token);
+                return data;
             }
             return null;
         } catch (e) {
@@ -204,12 +211,22 @@ export class VotingAPI {
         }
     }
 
+    setStudentSession(regNo, token) {
+        this.#regNo = regNo;
+        this.#studentToken = token;
+    }
+
     async updateStudentPassword(vid, currentPass, newPass) {
         try {
             const res = await fetch(`${this.baseUrl}/api/students/reset-password`, {
                 method: 'POST',
                 headers: this.getAuthHeaders(),
-                body: JSON.stringify({ regNo: parseInt(vid), currentPassword: currentPass, newPassword: newPass })
+                body: JSON.stringify({
+                    regNo: parseInt(vid),
+                    currentPassword: currentPass,
+                    newPassword: newPass,
+                    token: this.#studentToken
+                })
             });
             await this.syncData();
             return res.ok;
@@ -224,6 +241,7 @@ export class VotingAPI {
             headers: this.getAuthHeaders(),
             body: JSON.stringify({ adminKey: newKey })
         });
+        if (res.ok) this.#adminKey = newKey;
         await this.syncData();
         return res.ok;
     }
@@ -235,7 +253,7 @@ export class VotingAPI {
 
             const res = await fetch(`${this.baseUrl}/api/vote`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this.getAuthHeaders(),
                 body: JSON.stringify({
                     regNo: parseInt(vid),
                     candidateId: cid,
@@ -249,6 +267,9 @@ export class VotingAPI {
                 return { success: false, msg: errData.error || "Voting failed" };
             }
 
+            // Student session is invalidated on server after vote
+            this.#studentToken = null;
+            this.#regNo = null;
             await this.syncData();
             return { success: true };
         } catch (e) {
@@ -265,16 +286,52 @@ export class VotingAPI {
     }
 
     async #getDeviceFingerprint() {
-        // Collect browser/system attributes for unique identification
-        const fingerprintData = {
-            ua: navigator.userAgent,
-            os: navigator.platform,
-            screen: `${window.screen.width}x${window.screen.height}`,
-            tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            lang: navigator.language
-        };
-        const rawString = JSON.stringify(fingerprintData);
-        return await this.#hashString(rawString);
+        try {
+            const nav = window.navigator;
+            const screen = window.screen;
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 200; canvas.height = 50;
+            ctx.textBaseline = "top";
+            ctx.font = "14px 'Arial'";
+            ctx.fillStyle = "#f60"; ctx.fillRect(125, 1, 62, 20);
+            ctx.fillStyle = "#069"; ctx.fillText("SafeVote Fingerprint", 2, 15);
+            ctx.fillStyle = "rgba(102, 204, 0, 0.7)"; ctx.fillText("SafeVote Fingerprint", 4, 17);
+            const canvasData = canvas.toDataURL();
+
+            let webglData = "";
+            try {
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                if (gl) {
+                    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                    if (debugInfo) {
+                        webglData = (gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || "") + " " +
+                            (gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || "");
+                    }
+                }
+            } catch (e) { }
+
+            const fingerprintData = {
+                ua: nav.userAgent,
+                plat: nav.platform,
+                cores: nav.hardwareConcurrency || 0,
+                mem: nav.deviceMemory || 0,
+                langs: nav.languages ? nav.languages.join(',') : nav.language,
+                depth: screen.colorDepth,
+                sw: screen.width,
+                sh: screen.height,
+                tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                canvas: canvasData.substring(canvasData.length - 200),
+                webgl: webglData,
+                touch: nav.maxTouchPoints || 0
+            };
+
+            const rawString = JSON.stringify(fingerprintData);
+            return await this.#hashString(rawString);
+        } catch (e) {
+            return await this.#hashString(navigator.userAgent + "fallback_v2");
+        }
     }
 
     async #hashString(str) {
@@ -361,7 +418,7 @@ export class VotingAPI {
     }
 
     get isAdmin() {
-        return !!this.#adminKey;
+        return this.authenticated;
     }
 
     setAdminKey(key) {
@@ -372,7 +429,7 @@ export class VotingAPI {
         if (confirm("Reset election? This will clear all votes and student activity, but keep the current candidates at zero votes.")) {
             const res = await fetch(`${this.baseUrl}/api/reset-all`, {
                 method: 'POST',
-                headers: { 'X-Admin-Key': this.#adminKey }
+                headers: this.getAuthHeaders()
             });
             if (res.ok) {
                 localStorage.removeItem('safevote_backup');

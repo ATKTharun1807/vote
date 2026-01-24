@@ -38,13 +38,15 @@ mongoose.connect(MONGO_URI, {
     });
 
 // Schemas
+// Schemas
 const StudentSchema = new mongoose.Schema({
     regNo: { type: Number, required: true, unique: true },
     name: String,
     department: { type: String, default: 'CYBER SECURITY' },
     password: { type: String, required: true },
     hasVoted: { type: Boolean, default: false },
-    addedAt: { type: Date, default: Date.now }
+    addedAt: { type: Date, default: Date.now },
+    sessionToken: { type: String, default: null } // Added for security
 });
 
 const CandidateSchema = new mongoose.Schema({
@@ -83,18 +85,35 @@ const Blockchain = mongoose.model('Blockchain', BlockchainSchema);
 const Config = mongoose.model('Config', ConfigSchema);
 const VotedDevice = mongoose.model('VotedDevice', VotedDeviceSchema);
 
-// Admin Auth Middleware
+// Auth Middlewares
 const authAdmin = async (req, res, next) => {
     const key = req.headers['x-admin-key'];
     try {
         const config = await Config.findOne({ type: 'main' }).lean();
-        if (config && config.adminKey === key) {
+        if (config && config.adminKey === key && key) {
             next();
         } else {
             res.status(401).json({ error: "Unauthorized Administrative Access" });
         }
     } catch (e) {
         res.status(500).json({ error: "Auth Check Failed" });
+    }
+};
+
+const authStudent = async (req, res, next) => {
+    const token = req.headers['x-student-token'];
+    const regNo = req.body.regNo || req.query.regNo;
+    try {
+        if (!token || !regNo) return res.status(401).json({ error: "Student session missing" });
+        const student = await Student.findOne({ regNo: parseInt(regNo), sessionToken: token });
+        if (student) {
+            req.student = student;
+            next();
+        } else {
+            res.status(401).json({ error: "Invalid student session" });
+        }
+    } catch (e) {
+        res.status(500).json({ error: "Security check failed" });
     }
 };
 
@@ -118,9 +137,11 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Obfuscated Session Check (formerly Sync)
+// Obfuscated Session Check (Sync)
 app.get('/api/v1/session', async (req, res) => {
     const key = req.headers['x-admin-key'];
+    const studentToken = req.headers['x-student-token'];
+    const regNo = req.headers['x-reg-no'];
 
     try {
         if (mongoose.connection.readyState !== 1) {
@@ -140,8 +161,6 @@ app.get('/api/v1/session', async (req, res) => {
             if (candidatesCount >= 2) {
                 updates.electionStatus = 'ONGOING';
                 needsUpdate = true;
-            } else {
-                console.log("⚠️ Auto-Transition Skipped: Minimum 2 candidates required to start polling.");
             }
         } else if (config.electionStatus === 'ONGOING' && config.endTime && now >= new Date(config.endTime)) {
             updates.electionStatus = 'ENDED';
@@ -150,14 +169,18 @@ app.get('/api/v1/session', async (req, res) => {
 
         if (needsUpdate) {
             await Config.updateOne({ type: 'main' }, { $set: updates });
-            Object.assign(config, updates); // Update local object for the immediate response
-            console.log(`🕒 Auto-Transition: Election status updated to ${updates.electionStatus}`);
+            Object.assign(config, updates);
         }
 
-        const isAdmin = config.adminKey === key;
+        const isAdmin = config.adminKey === key && !!key;
+        let isStudentValid = false;
+        if (studentToken && regNo) {
+            const student = await Student.findOne({ regNo: parseInt(regNo), sessionToken: studentToken }).lean();
+            if (student) isStudentValid = true;
+        }
+
         const electionEnded = config.electionStatus === 'ENDED';
 
-        // Security: Strip internal database fields
         const safeConfig = {
             electionName: config.electionName,
             electionStatus: config.electionStatus,
@@ -168,10 +191,10 @@ app.get('/api/v1/session', async (req, res) => {
 
         const responseData = {
             config: safeConfig,
-            authenticated: isAdmin
+            authenticated: isAdmin,
+            isVoter: isStudentValid
         };
 
-        // Deep Security: Only fetch/return sensitive data if authorized or finished
         if (isAdmin || electionEnded) {
             responseData.totalStudents = await Student.countDocuments({});
             responseData.votedCount = await Student.countDocuments({ hasVoted: true });
@@ -197,7 +220,6 @@ app.get('/api/v1/session', async (req, res) => {
             }));
         }
 
-        // UNREADABLE PAYLOAD: Obfuscate with Base64 to hide from casual Network tab inspection
         const masked = Buffer.from(JSON.stringify(responseData)).toString('base64');
         res.json({ p: masked });
 
@@ -211,7 +233,7 @@ app.get('/api/students/list', async (req, res) => {
     const key = req.headers['x-admin-key'];
     try {
         const config = await Config.findOne({ type: 'main' }).lean();
-        if (!config || config.adminKey !== key) {
+        if (!config || config.adminKey !== key || !key) {
             return res.status(401).json({ error: "Unauthorized" });
         }
 
@@ -237,22 +259,16 @@ app.get('/api/candidates/list', async (req, res) => {
         const candidates = await Candidate.find({}).lean();
         const config = await Config.findOne({ type: 'main' }).lean();
         const key = req.headers['x-admin-key'];
-        const isAdmin = config && config.adminKey === key;
+        const isAdmin = config && config.adminKey === key && !!key;
         const electionEnded = config && config.electionStatus === 'ENDED';
 
         const safeCandidates = candidates.map((c, idx) => {
             const obj = {
-                // If not admin and election not ended, provide a session-based ID
                 id: (isAdmin || electionEnded) ? c._id : `cnd_${idx + 1}`,
                 name: c.name,
                 party: c.party
             };
-
-            // Admins see votes always, voters only when ended
-            if (isAdmin || electionEnded) {
-                obj.votes = c.votes;
-            }
-
+            if (isAdmin || electionEnded) obj.votes = c.votes;
             return obj;
         });
 
@@ -263,12 +279,12 @@ app.get('/api/candidates/list', async (req, res) => {
     }
 });
 
-// Admin Verification (Server-side to protect key)
+// Admin Verification
 app.post('/api/admin/verify', async (req, res) => {
     const { key } = req.body;
     try {
         const config = await Config.findOne({ type: 'main' });
-        if (config && config.adminKey === key) {
+        if (config && config.adminKey === key && key) {
             res.sendStatus(200);
         } else {
             res.sendStatus(401);
@@ -282,14 +298,20 @@ app.post('/api/admin/verify', async (req, res) => {
 app.post('/api/students/verify', async (req, res) => {
     const { regNo, password } = req.body;
     try {
-        const student = await Student.findOne({ regNo, password }).lean();
+        const student = await Student.findOne({ regNo, password });
         if (student) {
+            // Generate a secure session token
+            const token = crypto.randomBytes(32).toString('hex');
+            student.sessionToken = token;
+            await student.save();
+
             res.json({
                 id: student._id,
                 regNo: student.regNo,
                 name: student.name,
                 department: student.department,
-                hasVoted: student.hasVoted
+                hasVoted: student.hasVoted,
+                token: token // Return token for future requests
             });
         }
         else res.sendStatus(401);
@@ -300,7 +322,7 @@ app.post('/api/students/verify', async (req, res) => {
 
 // Student Password Reset
 app.post('/api/students/reset-password', async (req, res) => {
-    const { regNo, newPassword, currentPassword } = req.body;
+    const { regNo, newPassword, currentPassword, token } = req.body;
     const key = req.headers['x-admin-key'];
 
     try {
@@ -308,28 +330,26 @@ app.post('/api/students/reset-password', async (req, res) => {
         if (isNaN(reg)) throw new Error("Invalid Registration Number");
 
         const config = await Config.findOne({ type: 'main' }).lean();
-        const isAdmin = config && config.adminKey === key;
+        const isAdmin = config && config.adminKey === key && !!key;
 
         if (isAdmin) {
             // Admin can reset without current password
             await Student.updateOne({ regNo: reg }, { $set: { password: newPassword } });
-        } else if (currentPassword) {
-            // Student can reset if they provide correct current password
+        } else if (currentPassword && token) {
+            // Student can reset if they provide correct current password AND valid token
             const result = await Student.updateOne(
-                { regNo: reg, password: currentPassword },
+                { regNo: reg, password: currentPassword, sessionToken: token },
                 { $set: { password: newPassword } }
             );
             if (result.matchedCount === 0) {
-                return res.status(401).json({ error: "Current password incorrect" });
+                return res.status(401).json({ error: "Authorization failed or password incorrect" });
             }
         } else {
-            return res.status(401).json({ error: "Unauthorized: Admin key or current password required" });
+            return res.status(401).json({ error: "Unauthorized: Admin key or student session required" });
         }
 
-        console.log(`✅ Password updated successfully for ${regNo}`);
         res.sendStatus(200);
     } catch (e) {
-        console.error("❌ Reset Password Error:", e.message);
         res.status(500).send(e.message);
     }
 });
@@ -385,7 +405,6 @@ app.post('/api/config/update', authAdmin, async (req, res) => {
 app.post('/api/candidates/add', authAdmin, async (req, res) => {
     const { name, party } = req.body;
     try {
-        // Prevent duplicate candidates (Case-insensitive check for name AND party)
         const exists = await Candidate.findOne({
             name: { $regex: new RegExp(`^${name}$`, "i") },
             party: { $regex: new RegExp(`^${party}$`, "i") }
@@ -413,7 +432,7 @@ app.delete('/api/candidates/:id', authAdmin, async (req, res) => {
 });
 
 // Cast Vote
-app.post('/api/vote', async (req, res) => {
+app.post('/api/vote', authStudent, async (req, res) => {
     const { regNo, candidateId, voterHash, deviceFingerprint } = req.body;
 
     try {
@@ -422,8 +441,7 @@ app.post('/api/vote', async (req, res) => {
             return res.status(400).json({ error: "Election is not active." });
         }
 
-        const student = await Student.findOne({ regNo });
-        if (!student) return res.status(404).json({ error: "Student not found" });
+        const student = req.student; // From authStudent middleware
         if (student.hasVoted) return res.status(400).json({ error: "Already voted" });
 
         // Device-based Check
@@ -454,29 +472,25 @@ app.post('/api/vote', async (req, res) => {
 
         if (!candidate) return res.status(404).json({ error: "Candidate not found" });
 
-        // BLOCKCHAIN GENERATION (SERVER-SIDE)
-        // 1. Get the last block to link the chain
+        // BLOCKCHAIN GENERATION
         const lastBlock = await Blockchain.findOne({}).sort({ index: -1 }).lean();
         const nextIndex = lastBlock ? lastBlock.index + 1 : 0;
         const previousHash = lastBlock ? lastBlock.hash : "0x0000000000000000000000000000000000000000000000000000000000000000";
         const timestamp = new Date().toISOString();
 
-        // 2. Data to be stored (Voter identity is anonymized via hash)
         const blockData = {
             voterHash: voterHash || "unknown",
             candidateId: candidate._id,
             candidateName: candidate.name
         };
 
-        // 3. Calculate Cryptographic SHA-256 Hash
         const hash = calculateBlockHash(nextIndex, timestamp, blockData, previousHash);
 
-        // Atomic update of voting status
-        await Student.updateOne({ regNo }, { $set: { hasVoted: true } });
+        // Atomic update
+        await Student.updateOne({ _id: student._id }, { $set: { hasVoted: true, sessionToken: null } }); // Token invalidated after vote
         await Candidate.findByIdAndUpdate(candidate._id, { $inc: { votes: 1 } });
         await VotedDevice.create({ fingerprint: deviceFingerprint });
 
-        // Save the verified block to the ledger
         const newBlock = new Blockchain({
             index: nextIndex,
             timestamp,
@@ -486,10 +500,8 @@ app.post('/api/vote', async (req, res) => {
         });
 
         await newBlock.save();
-
         res.sendStatus(200);
     } catch (e) {
-        console.error("❌ Vote Process Error:", e.message);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
@@ -507,18 +519,16 @@ app.get('/api/blockchain/verify', authAdmin, async (req, res) => {
         for (let i = 0; i < chain.length; i++) {
             const block = chain[i];
             const previousHash = i === 0 ? "0x0000000000000000000000000000000000000000000000000000000000000000" : chain[i - 1].hash;
-
-            // Recalculate hash to check for tampering
             const recalculatedHash = calculateBlockHash(block.index, block.timestamp, block.data, previousHash);
 
             if (block.hash !== recalculatedHash) {
                 report.isValid = false;
-                report.issues.push(`Block #${block.index} has been tampered with! Stored hash does not match mathematical data.`);
+                report.issues.push(`Block #${block.index} tampered.`);
             }
 
             if (i > 0 && block.previousHash !== chain[i - 1].hash) {
                 report.isValid = false;
-                report.issues.push(`Chain broken at Block #${block.index}! Link to previous block is invalid.`);
+                report.issues.push(`Chain broken at Block #${block.index}.`);
             }
         }
 
@@ -533,15 +543,15 @@ app.post('/api/reset-all', authAdmin, async (req, res) => {
     try {
         await Candidate.updateMany({}, { $set: { votes: 0 } });
         await Blockchain.deleteMany({});
-        await Student.updateMany({}, { $set: { hasVoted: false } });
-        await VotedDevice.deleteMany({}); // Purge device fingerprints
+        await Student.updateMany({}, { $set: { hasVoted: false, sessionToken: null } });
+        await VotedDevice.deleteMany({});
         await Config.updateOne({ type: 'main' }, {
             $set: {
                 electionStatus: 'NOT_STARTED',
                 startTime: null,
                 endTime: null,
                 allowedDepartments: [],
-                electionName: 'Chief Minister Election'
+                electionName: 'Student Council Election'
             }
         });
         res.sendStatus(200);
@@ -552,11 +562,6 @@ app.post('/api/reset-all', authAdmin, async (req, res) => {
 
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// Global Error Handler
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 app.listen(port, '0.0.0.0', () => {

@@ -117,6 +117,7 @@ export class App {
         const savedUser = localStorage.getItem('safevote-user');
         const savedRole = localStorage.getItem('safevote-role');
         const savedAdminKey = localStorage.getItem('safevote-admin-key');
+        const savedStudentToken = localStorage.getItem('safevote-student-token');
         const lastActive = localStorage.getItem('safevote-last-active');
 
         const now = Date.now();
@@ -124,16 +125,26 @@ export class App {
 
         // Session recovery
         if (savedUser && savedRole && !isExpired) {
-            const tempRole = savedRole;
+            this.currentUser = JSON.parse(savedUser);
+            this.role = savedRole;
 
-            if (this.studentLinkMode && tempRole === 'admin') {
-                console.log("Admin session detected in student link mode. Forcing student login view.");
-            } else {
-                this.currentUser = JSON.parse(savedUser);
-                this.role = tempRole;
-                if (savedAdminKey) api.setAdminKey(savedAdminKey);
+            // Set keys in API for verification
+            if (savedAdminKey && this.role === 'admin') api.setAdminKey(savedAdminKey);
+            if (savedStudentToken && this.role === 'voter') api.setStudentSession(this.currentUser.regNo, savedStudentToken);
+
+            // VERIFICATION STEP: Sync first to check if server agrees with this role
+            await api.syncData();
+
+            const isActuallyAdmin = this.role === 'admin' && api.authenticated;
+            const isActuallyVoter = this.role === 'voter' && api.isVoter;
+
+            if (isActuallyAdmin || isActuallyVoter) {
                 localStorage.setItem('safevote-last-active', now.toString());
                 this.enterDashboard();
+                return;
+            } else {
+                console.warn("Session verification failed. Clearing invalid session.");
+                this.logout();
                 return;
             }
         } else if (isExpired) {
@@ -250,17 +261,17 @@ export class App {
         if (!val) return this.showToast("Please enter your ID", "error");
         if (!pass) return this.showToast("Please enter your password", "error");
 
-        // Try verifying with API (MongoDB)
-        const student = await api.verifyStudent(val, pass);
-        if (!student) {
+        const studentData = await api.verifyStudent(val, pass);
+        if (!studentData) {
             return this.showToast("Invalid ID or Password", "error");
         }
 
         this.role = 'voter';
-        this.currentUser = student;
+        this.currentUser = studentData;
 
-        localStorage.setItem('safevote-user', JSON.stringify(student));
+        localStorage.setItem('safevote-user', JSON.stringify(studentData));
         localStorage.setItem('safevote-role', 'voter');
+        localStorage.setItem('safevote-student-token', studentData.token);
 
         if (pass === 'atkboss') {
             this.showToast("Security Alert: Please reset your default password!", "error");
@@ -345,11 +356,13 @@ export class App {
         this.role = null;
         this.currentUser = null;
         api.setAdminKey(null);
-        api.stopPolling(); // Termination of background activity
+        api.setStudentSession(null, null);
+        api.stopPolling();
 
         localStorage.removeItem('safevote-user');
         localStorage.removeItem('safevote-role');
         localStorage.removeItem('safevote-admin-key');
+        localStorage.removeItem('safevote-student-token');
         localStorage.removeItem('safevote-active-tab');
         localStorage.removeItem('safevote-last-active');
 
