@@ -4,7 +4,7 @@ export class App {
     constructor() {
         this.currentUser = null;
         this.role = null;
-        this.activeTab = 'vote';
+        this.activeTab = localStorage.getItem('safevote-active-tab') || 'vote';
         this.searchQuery = "";
         this.theme = localStorage.getItem('safevote-theme') || 'light';
         this.isMenuOpen = false;
@@ -102,10 +102,16 @@ export class App {
         }
         this.setTheme(this.theme);
 
+        // Handle Popstate for browser back/forward
+        window.addEventListener('popstate', () => this.handleNavigation());
+
         // Handle URL parameters for direct linking first
         const params = new URLSearchParams(window.location.search);
         const view = params.get('view');
+        const tab = params.get('tab');
+
         this.studentLinkMode = (view === 'student');
+        if (tab) this.activeTab = tab;
 
         // Recover Session with Inactivity Check
         const savedUser = localStorage.getItem('safevote-user');
@@ -116,33 +122,44 @@ export class App {
         const now = Date.now();
         const isExpired = lastActive && (now - parseInt(lastActive)) > this.sessionTimeout;
 
-        // Session recovery: Only proceed if NOT in student link mode or if the session is a voter session
+        // Session recovery
         if (savedUser && savedRole && !isExpired) {
             const tempRole = savedRole;
 
-            // If we are in student link mode, don't auto-login as admin
             if (this.studentLinkMode && tempRole === 'admin') {
                 console.log("Admin session detected in student link mode. Forcing student login view.");
             } else {
                 this.currentUser = JSON.parse(savedUser);
                 this.role = tempRole;
                 if (savedAdminKey) api.setAdminKey(savedAdminKey);
-
-                // Update activity on recovery
                 localStorage.setItem('safevote-last-active', now.toString());
-
                 this.enterDashboard();
                 return;
             }
         } else if (isExpired) {
-            console.log("Session expired due to inactivity.");
-            this.logout(); // This clears localStorage
+            this.logout();
         }
 
         if (this.studentLinkMode) {
             this.showView('student-login', false);
         } else if (view === 'admin') {
             this.showView('admin-login', false);
+        } else {
+            this.showHome(false);
+        }
+    }
+
+    handleNavigation() {
+        const params = new URLSearchParams(window.location.search);
+        const view = params.get('view');
+        const tab = params.get('tab');
+
+        if (view) {
+            if (view === 'student') this.studentLinkMode = true;
+            this.showView(view + '-login', false);
+        } else if (this.role) {
+            if (tab) this.activeTab = tab;
+            this.enterDashboard();
         } else {
             this.showHome(false);
         }
@@ -288,13 +305,11 @@ export class App {
         // Mark active session
         localStorage.setItem('safevote-last-active', Date.now().toString());
 
-        // Clear view parameters from URL to avoid sticky student link mode on reload
+        // Sync URL tab parameter
         const url = new URL(window.location);
-        if (url.searchParams.has('view')) {
-            url.searchParams.delete('view');
-            window.history.replaceState({}, '', url);
-            this.studentLinkMode = false;
-        }
+        url.searchParams.delete('view');
+        url.searchParams.set('tab', this.activeTab);
+        window.history.replaceState({}, '', url);
 
         // Ensure data is synchronized immediately with the current role/key
         await api.syncData();
@@ -302,7 +317,18 @@ export class App {
         // Ensure candidates are loaded for everyone
         await api.fetchCandidates();
 
-        this.switchTab(this.role === 'admin' ? 'admin' : 'vote');
+        // Use preserved tab if valid for role, else default
+        let targetTab = this.activeTab;
+        const adminTabs = ['admin', 'students', 'results', 'blockchain', 'guide', 'vote'];
+        const voterTabs = ['vote', 'blockchain', 'guide'];
+
+        if (this.role === 'admin') {
+            if (!adminTabs.includes(targetTab)) targetTab = 'admin';
+        } else {
+            if (!voterTabs.includes(targetTab)) targetTab = 'vote';
+        }
+
+        this.switchTab(targetTab);
         api.startPolling(); // Activation only after login
     }
 
@@ -324,6 +350,7 @@ export class App {
         localStorage.removeItem('safevote-user');
         localStorage.removeItem('safevote-role');
         localStorage.removeItem('safevote-admin-key');
+        localStorage.removeItem('safevote-active-tab');
         localStorage.removeItem('safevote-last-active');
 
         this.showHome();
@@ -340,13 +367,20 @@ export class App {
         });
     }
 
-    async switchTab(tabId) {
+    async switchTab(tabId, updateUrl = true) {
         if (tabId === 'results' && this.role !== 'admin' && api.electionStatus !== 'ENDED') {
             return this.showToast("Results available after election ends", "error");
         }
 
         this.activeTab = tabId;
+        localStorage.setItem('safevote-active-tab', tabId);
         this.searchQuery = ""; // Reset search when switching tabs to avoid confusion
+
+        if (updateUrl) {
+            const url = new URL(window.location);
+            url.searchParams.set('tab', tabId);
+            window.history.replaceState({}, '', url);
+        }
 
         // If switching to students tab, fetch the data first
         if (tabId === 'students' && this.role === 'admin') {
