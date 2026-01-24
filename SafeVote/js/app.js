@@ -281,8 +281,6 @@ export class App {
     }
 
     async handleAdminLogin() {
-        // Security check: If the URL indicates this is a student-only link, 
-        // prevent admin login from here.
         const params = new URLSearchParams(window.location.search);
         if (params.get('view') === 'student') {
             return this.showToast("Admin access not permitted from this link", "error");
@@ -291,14 +289,13 @@ export class App {
         const input = document.getElementById('admin-key-input');
         const val = input.value.trim();
 
-        const isValid = await api.verifyAdmin(val);
-        if (isValid) {
+        const adminData = await api.verifyAdmin(val);
+        if (adminData && adminData.token) {
             this.role = 'admin';
-            api.setAdminKey(val);
-            localStorage.setItem('safevote-admin-key', val);
+            // Store the temporary SESSION TOKEN in localStorage, NOT the master key/password
+            localStorage.setItem('safevote-admin-key', adminData.token);
             localStorage.setItem('safevote-role', 'admin');
 
-            // After setting the key, fetch the full candidate data (with votes)
             await api.fetchCandidates();
             this.currentUser = { name: "System Administrator", regNo: "N/A" };
             localStorage.setItem('safevote-user', JSON.stringify(this.currentUser));

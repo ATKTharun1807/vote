@@ -66,9 +66,10 @@ const BlockchainSchema = new mongoose.Schema({
 
 const ConfigSchema = new mongoose.Schema({
     type: { type: String, default: 'main', unique: true },
-    electionName: { type: String, default: 'Chief Minister Election' },
+    electionName: { type: String, default: 'Student Council Election' },
     electionStatus: { type: String, default: 'NOT_STARTED' },
     adminKey: { type: String, default: 'admin123' },
+    adminSessionToken: { type: String, default: null }, // Temporary session handle
     startTime: { type: Date, default: null },
     endTime: { type: Date, default: null },
     allowedDepartments: { type: [String], default: [] }
@@ -89,8 +90,10 @@ const VotedDevice = mongoose.model('VotedDevice', VotedDeviceSchema);
 const authAdmin = async (req, res, next) => {
     const key = req.headers['x-admin-key'];
     try {
+        if (!key) return res.status(401).json({ error: "Unauthorized" });
         const config = await Config.findOne({ type: 'main' }).lean();
-        if (config && config.adminKey === key && key) {
+        // Allow either master key or temporary session token
+        if (config && (config.adminKey === key || config.adminSessionToken === key)) {
             next();
         } else {
             res.status(401).json({ error: "Unauthorized Administrative Access" });
@@ -172,7 +175,7 @@ app.get('/api/v1/session', async (req, res) => {
             Object.assign(config, updates);
         }
 
-        const isAdmin = config.adminKey === key && !!key;
+        const isAdmin = (config.adminKey === key || config.adminSessionToken === key) && !!key;
         let isStudentValid = false;
         if (studentToken && regNo) {
             const student = await Student.findOne({ regNo: parseInt(regNo), sessionToken: studentToken }).lean();
@@ -285,7 +288,10 @@ app.post('/api/admin/verify', async (req, res) => {
     try {
         const config = await Config.findOne({ type: 'main' });
         if (config && config.adminKey === key && key) {
-            res.sendStatus(200);
+            // Generate temporary session token
+            const token = crypto.randomBytes(32).toString('hex');
+            await Config.updateOne({ type: 'main' }, { $set: { adminSessionToken: token } });
+            res.json({ token });
         } else {
             res.sendStatus(401);
         }

@@ -142,12 +142,14 @@ export class VotingAPI {
                 body: JSON.stringify({ key })
             });
             if (res.ok) {
-                this.#adminKey = key;
+                const data = await res.json();
+                this.#adminKey = data.token; // Use temporary session token, not master key
                 await this.syncData();
+                return data;
             }
-            return res.ok;
+            return null;
         } catch (e) {
-            return false;
+            return null;
         }
     }
 
