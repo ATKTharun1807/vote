@@ -230,7 +230,6 @@ export class VotingAPI {
     async castVote(vid, cid) {
         const last = this.localBlockchain[this.localBlockchain.length - 1] || { hash: "0", index: -1 };
         const voterHash = await this.hashID(vid.toString());
-        const deviceFingerprint = await this.#getDeviceFingerprint();
 
         const block = {
             index: last.index + 1,
@@ -244,21 +243,10 @@ export class VotingAPI {
             const res = await fetch(`${this.baseUrl}/api/vote`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    regNo: parseInt(vid),
-                    candidateId: cid,
-                    block,
-                    deviceFingerprint // Securely hashed device fingerprint
-                })
+                body: JSON.stringify({ regNo: parseInt(vid), candidateId: cid, block })
             });
-
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                return { success: false, msg: errData.error || "Voting failed" };
-            }
-
             await this.syncData();
-            return { success: true };
+            return res.ok ? { success: true } : { success: false, msg: "Voting failed" };
         } catch (e) {
             return { success: false, msg: "Server error" };
         }
@@ -270,25 +258,6 @@ export class VotingAPI {
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         return hashHex.substring(0, 20);
-    }
-
-    async #getDeviceFingerprint() {
-        const fingerprintData = {
-            ua: navigator.userAgent,
-            os: navigator.platform,
-            screen: `${window.screen.width}x${window.screen.height}`,
-            tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            lang: navigator.language
-        };
-        const rawString = JSON.stringify(fingerprintData);
-        return await this.#hashString(rawString);
-    }
-
-    async #hashString(str) {
-        const msgUint8 = new TextEncoder().encode(str);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
     async updateStatus(s) {

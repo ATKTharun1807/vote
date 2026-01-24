@@ -65,16 +65,10 @@ const ConfigSchema = new mongoose.Schema({
     allowedDepartments: { type: [String], default: [] }
 });
 
-const VotedDeviceSchema = new mongoose.Schema({
-    fingerprint: { type: String, required: true, unique: true },
-    votedAt: { type: Date, default: Date.now }
-});
-
 const Student = mongoose.model('Student', StudentSchema);
 const Candidate = mongoose.model('Candidate', CandidateSchema);
 const Blockchain = mongoose.model('Blockchain', BlockchainSchema);
 const Config = mongoose.model('Config', ConfigSchema);
-const VotedDevice = mongoose.model('VotedDevice', VotedDeviceSchema);
 
 // Admin Auth Middleware
 const authAdmin = async (req, res, next) => {
@@ -398,7 +392,7 @@ app.delete('/api/candidates/:id', authAdmin, async (req, res) => {
 
 // Cast Vote
 app.post('/api/vote', async (req, res) => {
-    const { regNo, candidateId, block, deviceFingerprint } = req.body;
+    const { regNo, candidateId, block } = req.body;
 
     try {
         const config = await Config.findOne({ type: 'main' });
@@ -409,16 +403,6 @@ app.post('/api/vote', async (req, res) => {
         const student = await Student.findOne({ regNo });
         if (!student) return res.status(404).json({ error: "Student not found in database" });
         if (student.hasVoted) return res.status(400).json({ error: "Student has already cast their vote" });
-
-        // Device-based Check
-        if (deviceFingerprint) {
-            const deviceExists = await VotedDevice.findOne({ fingerprint: deviceFingerprint });
-            if (deviceExists) {
-                return res.status(400).json({ error: "This device has already been used to cast a vote." });
-            }
-        } else {
-            return res.status(400).json({ error: "Security check failed: Device fingerprint missing." });
-        }
 
         // Check Department Restriction
         if (config.allowedDepartments && config.allowedDepartments.length > 0) {
@@ -452,9 +436,6 @@ app.post('/api/vote', async (req, res) => {
         await Student.updateOne({ regNo }, { $set: { hasVoted: true } });
         await Candidate.findByIdAndUpdate(candidate._id, { $inc: { votes: 1 } });
 
-        // Store device fingerprint
-        await VotedDevice.create({ fingerprint: deviceFingerprint });
-
         // Ensure data is saved in Blockchain (Use real ID in blockchain for audit integrity)
         const blockWithRealId = { ...block };
         if (blockWithRealId.data) blockWithRealId.data.candidateId = candidate._id;
@@ -475,7 +456,6 @@ app.post('/api/reset-all', authAdmin, async (req, res) => {
         await Candidate.updateMany({}, { $set: { votes: 0 } });
         await Blockchain.deleteMany({});
         await Student.updateMany({}, { $set: { hasVoted: false } });
-        await VotedDevice.deleteMany({}); // Clear device fingerprints on reset
         await Config.updateOne({ type: 'main' }, {
             $set: {
                 electionStatus: 'NOT_STARTED',
