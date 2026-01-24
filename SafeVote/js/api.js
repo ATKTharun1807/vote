@@ -73,7 +73,8 @@ export class VotingAPI {
             }
 
             this.localBlockchain = data.blockchain || [];
-            // Note: localStudents and localCandidates are NOT updated here to keep the heartbeat response hidden
+            if (data.candidates) this.localCandidates = data.candidates;
+            // Note: localStudents is NOT updated here to keep the heartbeat response hidden
             this.electionName = data.config.electionName;
             this.electionStatus = data.config.electionStatus;
             this.startTime = data.config.startTime;

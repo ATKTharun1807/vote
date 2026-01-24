@@ -175,6 +175,15 @@ app.get('/api/v1/session', async (req, res) => {
         if (isAdmin || electionEnded) {
             responseData.totalStudents = await Student.countDocuments({});
             responseData.votedCount = await Student.countDocuments({ hasVoted: true });
+
+            const candidates = await Candidate.find({}).sort({ addedAt: 1 }).lean();
+            responseData.candidates = candidates.map((c, idx) => ({
+                id: (isAdmin || electionEnded) ? c._id : `cnd_${idx + 1}`,
+                name: c.name,
+                party: c.party,
+                votes: c.votes
+            }));
+
             const blockchain = await Blockchain.find({}).sort({ index: 1 }).lean();
             responseData.blockchain = blockchain.map(b => ({
                 index: b.index,
