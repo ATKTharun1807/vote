@@ -292,6 +292,7 @@ export class VotingAPI {
             const nav = window.navigator;
             const screen = window.screen;
 
+            // 1. Canvas Fingerprint (Hardware-accelerated rendering hash)
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             canvas.width = 200; canvas.height = 50;
@@ -302,6 +303,7 @@ export class VotingAPI {
             ctx.fillStyle = "rgba(102, 204, 0, 0.7)"; ctx.fillText("SafeVote Fingerprint", 4, 17);
             const canvasData = canvas.toDataURL();
 
+            // 2. WebGL Fingerprint (Specific GPU/Driver details)
             let webglData = "";
             try {
                 const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
@@ -314,6 +316,7 @@ export class VotingAPI {
                 }
             } catch (e) { }
 
+            // 3. Hardware & Environment Data
             const fingerprintData = {
                 ua: nav.userAgent,
                 plat: nav.platform,
@@ -321,8 +324,8 @@ export class VotingAPI {
                 mem: nav.deviceMemory || 0,
                 langs: nav.languages ? nav.languages.join(',') : nav.language,
                 depth: screen.colorDepth,
-                sw: screen.width,
-                sh: screen.height,
+                sw: screen.width, // Physical screen width (Stable)
+                sh: screen.height, // Physical screen height (Stable)
                 tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
                 canvas: canvasData.substring(canvasData.length - 200),
                 webgl: webglData,
