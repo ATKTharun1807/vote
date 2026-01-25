@@ -1347,14 +1347,36 @@ export class App {
         if (window.lucide) window.lucide.createIcons();
     }
 
+    async refreshResults() {
+        const btn = document.getElementById('refresh-results-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="refresh-cw" class="spin" style="width:16px; height:16px;"></i> refreshing...`;
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        await api.syncData();
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i data-lucide="refresh-cw" style="width:16px; height:16px;"></i> REFRESH RESULTS`;
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
+
     renderResultsTab(container) {
         const sorted = [...api.localCandidates].sort((a, b) => (b.votes || 0) - (a.votes || 0));
         const winner = this.getWinner();
 
         let html = `
-            <div style="text-align:center; margin-bottom:3rem">
-                <h1 style="font-size:2.5rem; font-weight:900">${api.electionName}</h1>
-                <h2 style="margin:0; color:var(--text-muted)">Official Tally</h2>
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:3rem">
+                <div style="text-align:left">
+                    <h1 style="font-size:2.5rem; font-weight:900; margin:0">${api.electionName}</h1>
+                    <h2 style="margin:0; color:var(--text-muted)">Official Tally</h2>
+                </div>
+                <button id="refresh-results-btn" onclick="window.app.refreshResults()" class="btn-primary-custom" style="padding: 0.6rem 1.25rem; font-size: 0.8rem; display:flex; align-items:center; gap:0.5rem;">
+                    <i data-lucide="refresh-cw" style="width:16px; height:16px;"></i> REFRESH RESULTS
+                </button>
             </div>
         `;
 

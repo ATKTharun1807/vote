@@ -735,6 +735,10 @@ p {
     }
 }
 
+.spin {
+    animation: spin 1s linear infinite;
+}
+
 /* Ensuring table responsiveness */
 .admin-table-container {
     width: 100%;
