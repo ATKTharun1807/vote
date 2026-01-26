@@ -232,14 +232,8 @@ app.get('/api/v1/session', async (req, res) => {
 });
 
 // Authorized Student List
-app.get('/api/students/list', async (req, res) => {
-    const key = req.headers['x-admin-key'];
+app.get('/api/students/list', authAdmin, async (req, res) => {
     try {
-        const config = await Config.findOne({ type: 'main' }).lean();
-        if (!config || config.adminKey !== key || !key) {
-            return res.status(401).json({ error: "Unauthorized" });
-        }
-
         const students = await Student.find({}).lean();
         const safeStudents = students.map(s => ({
             id: s._id,
@@ -262,7 +256,7 @@ app.get('/api/candidates/list', async (req, res) => {
         const candidates = await Candidate.find({}).lean();
         const config = await Config.findOne({ type: 'main' }).lean();
         const key = req.headers['x-admin-key'];
-        const isAdmin = config && config.adminKey === key && !!key;
+        const isAdmin = config && (config.adminKey === key || config.adminSessionToken === key) && !!key;
         const electionEnded = config && config.electionStatus === 'ENDED';
 
         const safeCandidates = candidates.map((c, idx) => {
@@ -336,7 +330,7 @@ app.post('/api/students/reset-password', async (req, res) => {
         if (isNaN(reg)) throw new Error("Invalid Registration Number");
 
         const config = await Config.findOne({ type: 'main' }).lean();
-        const isAdmin = config && config.adminKey === key && !!key;
+        const isAdmin = config && (config.adminKey === key || config.adminSessionToken === key) && !!key;
 
         if (isAdmin) {
             // Admin can reset without current password
