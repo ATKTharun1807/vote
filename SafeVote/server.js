@@ -5,18 +5,62 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
+// Load environment variables manually if dotenv is missing
+try {
+    require('dotenv').config();
+} catch (e) {
+    console.warn("⚠️  dotenv not found, using system environment variables.");
+}
+
+// Built-in Rate Limiter Fallback
+const rateLimit = (options) => {
+    const requests = new Map();
+    return (req, res, next) => {
+        const ip = req.ip;
+        const now = Date.now();
+        const windowMs = options.windowMs || 15 * 60 * 1000;
+        const max = options.max || 100;
+
+        if (!requests.has(ip)) requests.set(ip, []);
+        const timestamps = requests.get(ip).filter(t => now - t < windowMs);
+        timestamps.push(now);
+        requests.set(ip, timestamps);
+
+        if (timestamps.length > max) {
+            return res.status(429).json(options.message || { error: "Too many requests" });
+        }
+        next();
+    };
+};
+
+// Built-in Password Hashing (PBKDF2)
+const hashPassword = (password) => {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+    return `${salt}:${hash}`;
+};
+
+const verifyPassword = (password, storedHash) => {
+    if (!storedHash.includes(':')) return password === storedHash; // Plaintext check
+    const [salt, hash] = storedHash.split(':');
+    const verifyHash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+    return hash === verifyHash;
+};
+
 const app = express();
 const port = process.env.PORT || 8081;
 
+const BLOCKCHAIN_SALT = process.env.BLOCKCHAIN_SALT || "safevote_secret_salt_2024";
+
 // Blockchain Helper
 function calculateBlockHash(index, timestamp, data, previousHash) {
-    const stringToHash = `${index}${timestamp}${JSON.stringify(data)}${previousHash}safevote_secret_salt_2024`;
+    const stringToHash = `${index}${timestamp}${JSON.stringify(data)}${previousHash}${BLOCKCHAIN_SALT}`;
     return crypto.createHash('sha256').update(stringToHash).digest('hex');
 }
 
 // MongoDB Connection
-// The password provided was 'siet@123'. URL encoding @ to %40 is mandatory.
-const MONGO_URI = "mongodb+srv://stharunkumar069_db_user:siet%40123@cluster0.frcnaxx.mongodb.net/safevote?retryWrites=true&w=majority&appName=Cluster0";
+const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://stharunkumar069_db_user:siet%40123@cluster0.frcnaxx.mongodb.net/safevote?retryWrites=true&w=majority&appName=Cluster0";
+const JWT_SALT = process.env.VOTER_SALT || "safevote_salt_2024";
 
 console.log("🚀 Starting SafeVote Server...");
 console.log("🔗 Attempting to connect to MongoDB Atlas...");
@@ -120,10 +164,28 @@ const authStudent = async (req, res, next) => {
     }
 };
 
+// Rate Limiters
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 20, // Limit each IP to 20 login attempts per window
+    message: { error: "Too many login attempts. Please try again after 15 minutes." }
+});
+
+const voteLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 5, // Limit each IP to 5 vote attempts (protection against scripts)
+    message: { error: "Security limit reached. Please contact admin if this is an error." }
+});
+
 app.use(cors());
 app.use(express.json());
 
-// Security: Only serve specific directories/files to prevent leaking server.js or .db files
+// Apply limiters to auth routes
+app.use('/api/admin/verify', loginLimiter);
+app.use('/api/students/verify', loginLimiter);
+app.use('/api/vote', voteLimiter);
+
+// Security: Only serve specific directories/files to prevent leaking server.js
 app.use('/css', express.static(path.join(__dirname, 'css')));
 app.use('/js', express.static(path.join(__dirname, 'js')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
@@ -298,8 +360,17 @@ app.post('/api/admin/verify', async (req, res) => {
 app.post('/api/students/verify', async (req, res) => {
     const { regNo, password } = req.body;
     try {
-        const student = await Student.findOne({ regNo, password });
+        const student = await Student.findOne({ regNo });
         if (student) {
+            const isMatch = verifyPassword(password, student.password);
+
+            if (!isMatch) return res.sendStatus(401);
+
+            // If it was plaintext, auto-migrate to hash on successful login
+            if (!student.password.includes(':')) {
+                student.password = hashPassword(password);
+            }
+
             // Generate a secure session token
             const token = crypto.randomBytes(32).toString('hex');
             student.sessionToken = token;
@@ -334,16 +405,22 @@ app.post('/api/students/reset-password', async (req, res) => {
 
         if (isAdmin) {
             // Admin can reset without current password
-            await Student.updateOne({ regNo: reg }, { $set: { password: newPassword } });
+            const hashedPassword = hashPassword(newPassword);
+            await Student.updateOne({ regNo: reg }, { $set: { password: hashedPassword } });
         } else if (currentPassword && token) {
             // Student can reset if they provide correct current password AND valid token
-            const result = await Student.updateOne(
-                { regNo: reg, password: currentPassword, sessionToken: token },
-                { $set: { password: newPassword } }
+            const student = await Student.findOne({ regNo: reg, sessionToken: token });
+            if (!student) return res.status(401).json({ error: "Authorization failed" });
+
+            const isMatch = verifyPassword(currentPassword, student.password);
+
+            if (!isMatch) return res.status(401).json({ error: "Current password incorrect" });
+
+            const hashedPassword = hashPassword(newPassword);
+            await Student.updateOne(
+                { regNo: reg },
+                { $set: { password: hashedPassword } }
             );
-            if (result.matchedCount === 0) {
-                return res.status(401).json({ error: "Authorization failed or password incorrect" });
-            }
         } else {
             return res.status(401).json({ error: "Unauthorized: Admin key or student session required" });
         }
@@ -361,11 +438,12 @@ app.post('/api/students/add', authAdmin, async (req, res) => {
         const exists = await Student.findOne({ regNo });
         if (exists) return res.status(400).json({ error: "Student ID already exists" });
 
+        const hashedPassword = hashPassword(password || 'REPLACE_ME');
         await Student.create({
             regNo,
             name,
             department: req.body.department || 'CYBER SECURITY',
-            password: password || 'REPLACE_ME',
+            password: hashedPassword,
             hasVoted: false
         });
         res.sendStatus(200);
