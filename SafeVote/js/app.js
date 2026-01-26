@@ -1136,15 +1136,20 @@ export class App {
     }
 
     async handleUpdateStatus(status) {
-        if (status === 'ONGOING' && api.localCandidates.length < 2) {
-            return this.showToast("Cannot start election: Minimum 2 candidates required.", "error");
+        if (status === 'ONGOING') {
+            if (!api.startTime || !api.endTime) {
+                return this.showToast("Cannot start election: Please apply a schedule first.", "error");
+            }
+            if (api.localCandidates.length < 2) {
+                return this.showToast("Cannot start election: Minimum 2 candidates required.", "error");
+            }
         }
         try {
             await api.updateStatus(status);
             this.showToast(`Election status set to ${status}`);
             this.renderContent();
         } catch (e) {
-            this.showToast("Failed to update status", "error");
+            this.showToast(e.message || "Failed to update status", "error");
         }
     }
 

@@ -347,11 +347,17 @@ export class VotingAPI {
     }
 
     async updateStatus(s) {
-        await fetch(`${this.baseUrl}/api/config/update`, {
+        const res = await fetch(`${this.baseUrl}/api/config/update`, {
             method: 'POST',
             headers: this.getAuthHeaders(),
             body: JSON.stringify({ electionStatus: s })
         });
+
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to update status");
+        }
+
         this.electionStatus = s;
         await this.syncData();
     }

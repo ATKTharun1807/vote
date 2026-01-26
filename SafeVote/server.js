@@ -395,6 +395,14 @@ app.post('/api/config/update', authAdmin, async (req, res) => {
     const updates = req.body;
     try {
         if (updates.electionStatus === 'ONGOING') {
+            const currentConfig = await Config.findOne({ type: 'main' });
+            const startTime = updates.startTime || (currentConfig ? currentConfig.startTime : null);
+            const endTime = updates.endTime || (currentConfig ? currentConfig.endTime : null);
+
+            if (!startTime || !endTime) {
+                return res.status(400).json({ error: "Cannot start election without a schedule. Please apply a schedule first." });
+            }
+
             const candidatesCount = await Candidate.countDocuments({});
             if (candidatesCount < 2) {
                 return res.status(400).json({ error: "Cannot start election: Minimum 2 candidates required." });
