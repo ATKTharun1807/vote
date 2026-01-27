@@ -47,11 +47,33 @@ export class VotingAPI {
     }
 
     async initAuth() {
+        this.loadFromStorage();
         try {
             await this.syncData();
             return true;
         } catch (e) {
             return false;
+        }
+    }
+
+    loadFromStorage() {
+        try {
+            const backup = localStorage.getItem('safevote_backup');
+            if (backup) {
+                const data = JSON.parse(backup);
+                if (data.candidates) this.localCandidates = data.candidates;
+                if (data.blockchain) this.localBlockchain = data.blockchain;
+                if (data.voters) this.voterIds = data.voters;
+                if (data.config) {
+                    this.electionName = data.config.electionName || this.electionName;
+                    this.electionStatus = data.config.electionStatus || this.electionStatus;
+                    this.startTime = data.config.startTime;
+                    this.endTime = data.config.endTime;
+                    this.allowedDepartments = data.config.allowedDepartments || [];
+                }
+            }
+        } catch (e) {
+            console.warn("Could not load from storage", e);
         }
     }
 

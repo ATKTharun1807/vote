@@ -96,24 +96,19 @@ export class App {
 
     async init() {
         console.log("Initializing SafeVote App...");
-        const success = await api.initAuth();
-        if (!success) {
-            this.showToast("Database connection failed. Check config.", "error");
-        }
-        this.setTheme(this.theme);
 
-        // Handle Popstate for browser back/forward
+        // 1. Immediate Theme & Navigation setup
+        this.setTheme(this.theme);
         window.addEventListener('popstate', () => this.handleNavigation());
 
-        // Handle URL parameters for direct linking first
+        // 2. URL Parameter handling
         const params = new URLSearchParams(window.location.search);
         const view = params.get('view');
         const tab = params.get('tab');
-
         this.studentLinkMode = (view === 'student');
         if (tab) this.activeTab = tab;
 
-        // Recover Session with Inactivity Check
+        // 3. Session Recovery check (SYNCHRONOUS)
         const savedUser = localStorage.getItem('safevote-user');
         const savedRole = localStorage.getItem('safevote-role');
         const savedAdminKey = localStorage.getItem('safevote-admin-key');
@@ -123,32 +118,36 @@ export class App {
         const now = Date.now();
         const isExpired = lastActive && (now - parseInt(lastActive)) > this.sessionTimeout;
 
-        // Session recovery
         if (savedUser && savedRole && !isExpired) {
+            // OPTIMISTIC RENDER: We have a session, show dashboard IMMEDIATELY
             this.currentUser = JSON.parse(savedUser);
             this.role = savedRole;
 
-            // Set keys in API for verification
+            // Prepare API with stored credentials
             if (savedAdminKey && this.role === 'admin') api.setAdminKey(savedAdminKey);
             if (savedStudentToken && this.role === 'voter') api.setStudentSession(this.currentUser.regNo, savedStudentToken);
 
-            // VERIFICATION STEP: Sync first to check if server agrees with this role
-            await api.syncData();
+            // Load cached data for instant display
+            api.loadFromStorage();
 
-            const isActuallyAdmin = this.role === 'admin' && api.authenticated;
-            const isActuallyVoter = this.role === 'voter' && api.isVoter;
+            // Navigate to dashboard before network call
+            this.enterDashboard();
 
-            if (isActuallyAdmin || isActuallyVoter) {
-                localStorage.setItem('safevote-last-active', now.toString());
-                this.enterDashboard();
-                return;
-            } else {
-                console.warn("Session verification failed. Clearing invalid session.");
-                this.logout();
-                return;
-            }
+            // Perform verification/sync in the background
+            api.syncData().then(() => {
+                console.log("Background sync complete.");
+                // If sync failed (e.g. session revoked), api.syncData will have called logout() already
+            });
+            return;
         } else if (isExpired) {
             this.logout();
+            return;
+        }
+
+        // 4. Default Path (No Session): Block on sync to get latest election status
+        const success = await api.initAuth();
+        if (!success) {
+            this.showToast("Database connection failed. Check config.", "error");
         }
 
         if (this.studentLinkMode) {
