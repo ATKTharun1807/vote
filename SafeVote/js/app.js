@@ -318,6 +318,11 @@ export class App {
         url.searchParams.set('tab', this.activeTab);
         window.history.replaceState({}, '', url);
 
+        // Update data-role for CSS visibility
+        if (this.role) {
+            document.documentElement.setAttribute('data-role', this.role);
+        }
+
         // Ensure data is synchronized immediately with the current role/key
         await api.syncData();
 
@@ -361,6 +366,7 @@ export class App {
         localStorage.removeItem('safevote-student-token');
         localStorage.removeItem('safevote-active-tab');
         localStorage.removeItem('safevote-last-active');
+        document.documentElement.removeAttribute('data-role');
 
         this.showHome();
     }

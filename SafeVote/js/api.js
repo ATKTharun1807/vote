@@ -58,6 +58,9 @@ export class VotingAPI {
 
     loadFromStorage() {
         try {
+            const savedAdminKey = localStorage.getItem('safevote-admin-key');
+            if (savedAdminKey) this.authenticated = true;
+
             const backup = localStorage.getItem('safevote_backup');
             if (backup) {
                 const data = JSON.parse(backup);

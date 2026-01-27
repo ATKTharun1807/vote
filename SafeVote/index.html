@@ -39,6 +39,11 @@
         (function () {
             const savedTheme = localStorage.getItem('safevote-theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
+
+            const savedRole = localStorage.getItem('safevote-role');
+            if (savedRole) {
+                document.documentElement.setAttribute('data-role', savedRole);
+            }
         })();
 
         // Safe Proxy for early clicks before app.js (module) loads

@@ -259,6 +259,13 @@ p {
     box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
 }
 
+/* Fast Role-based Visibility (Prevents Flicker) */
+[data-role="admin"] #tab-admin,
+[data-role="admin"] #tab-students,
+[data-role="admin"] #tab-results {
+    display: flex !important;
+}
+
 /* Theme Switcher Styles */
 .theme-switcher-premium {
     display: flex;
