@@ -89,9 +89,32 @@ export class App {
         let dept = "OTHERS";
         if (deptCode === "107") dept = "CYBER SECURITY";
         else if (deptCode === "202") dept = "AIML";
+        else if (deptCode === "205") dept = "IOT";
+        else if (deptCode === "104") dept = "CSE";
 
         if (year && dept) return `${dept} | ${year}`;
         return dept || year || "OTHERS";
+    }
+
+    getYearLabel(id) {
+        if (!id || id === "N/A") return "Others";
+        const sId = id.toString();
+        const yearCode = sId.substring(4, 6);
+        if (yearCode === "23") return "3rd Year";
+        if (yearCode === "24") return "2nd Year";
+        if (yearCode === "25") return "1st Year";
+        if (yearCode === "22") return "4th Year";
+        return "Batch 20" + (yearCode || "XX");
+    }
+
+    getDeptLabel(id) {
+        const sId = id.toString();
+        const deptCode = sId.substring(6, 9);
+        if (deptCode === "107") return "CYBER SECURITY";
+        if (deptCode === "202") return "AIML";
+        if (deptCode === "205") return "IOT";
+        if (deptCode === "104") return "CSE";
+        return "OTHERS";
     }
 
     async init() {
@@ -913,25 +936,30 @@ export class App {
     }
 
     renderStudentsTab(container) {
-        const studentsByDept = {};
+        const studentsByYear = {};
         const query = this.searchQuery.toLowerCase();
 
-        // Group students by department
+        // Group students by Year then Department
         api.localStudents.forEach(s => {
+            if (query && !s.name.toLowerCase().includes(query) && !s.regNo.toString().includes(query)) return;
+
+            const yearLabel = this.getYearLabel(s.regNo);
             let dept = s.department;
             if (dept === "CYBER") dept = "CYBER SECURITY";
-            if (!dept) {
-                const sId = s.regNo.toString();
-                const dCode = sId.substring(6, 9);
-                if (dCode === "107") dept = "CYBER SECURITY";
-                else if (dCode === "202") dept = "AIML";
-                else dept = "CYBER SECURITY"; // Default fallback
-            }
-            if (!studentsByDept[dept]) studentsByDept[dept] = [];
-            studentsByDept[dept].push(s);
+            if (!dept) dept = this.getDeptLabel(s.regNo);
+
+            if (!studentsByYear[yearLabel]) studentsByYear[yearLabel] = {};
+            if (!studentsByYear[yearLabel][dept]) studentsByYear[yearLabel][dept] = [];
+            studentsByYear[yearLabel][dept].push(s);
         });
 
-        const departments = Object.keys(studentsByDept).sort();
+        // Sort years: 4th, 3rd, 2nd, 1st, Unknown/Alumni
+        const yearOrder = ["4th Year", "3rd Year", "2nd Year", "1st Year", "Alumni / Other", "Unknown Year"];
+        const sortedYears = Object.keys(studentsByYear).sort((a, b) => {
+            const indexA = yearOrder.indexOf(a);
+            const indexB = yearOrder.indexOf(b);
+            return indexA - indexB;
+        });
 
         let html = `
             <div style="display:flex; flex-direction: column; align-items: center; margin-bottom: 3rem;">
@@ -947,81 +975,96 @@ export class App {
             <div class="departments-container">
         `;
 
-        const allAvailableDepts = new Set(["CYBER SECURITY", "AIML", "OTHERS"]);
+        sortedYears.forEach(year => {
+            html += `
+                <div class="year-section" style="margin-bottom: 4rem;">
+                    <div style="display:flex; align-items:center; gap:1rem; margin-bottom: 2rem; border-bottom: 2px solid var(--primary-light); padding-bottom: 0.5rem;">
+                        <i data-lucide="calendar" style="color:var(--primary); width:24px;"></i>
+                        <h2 style="margin:0; color:var(--primary); font-size:1.8rem; font-weight:900;">${year}</h2>
+                    </div>
+            `;
+
+            const deptsInYear = Object.keys(studentsByYear[year]).sort();
+
+            deptsInYear.forEach(dept => {
+                const students = studentsByYear[year][dept].sort((a, b) => a.name.localeCompare(b.name));
+                const folderKey = `${year}-${dept}`;
+                const isExpanded = this.expandedDepts[folderKey];
+
+                html += `
+                    <div class="card-custom mb-4 student-dept-folder" style="padding: 0; overflow: hidden; border: 2px solid var(--primary-light);">
+                        <div onclick="window.app.toggleDept('${folderKey}')" style="padding: 1.5rem; background: var(--primary-light); display:flex; justify-content:space-between; align-items:center; cursor:pointer; transition: background 0.3s;">
+                            <div style="display:flex; align-items:center; gap:0.75rem;">
+                                <i data-lucide="${isExpanded ? 'folder-open' : 'folder'}" style="color:var(--primary)"></i>
+                                <h3 style="margin:0; color:var(--primary)">${dept}</h3>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:1rem;">
+                                <span style="background:white; color:var(--primary); padding: 0.2rem 0.6rem; border-radius: 99px; font-weight: 800; font-size: 0.8rem;">
+                                    ${students.length} Students
+                                </span>
+                                <i data-lucide="${isExpanded ? 'chevron-up' : 'chevron-down'}" style="color:var(--primary); width:20px;"></i>
+                            </div>
+                        </div>
+                        
+                        ${isExpanded ? `
+                        <div class="fade-in">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Student Name</th>
+                                        <th>Roll / Reg No</th>
+                                        <th>Password</th>
+                                        <th style="text-align:center">Status</th>
+                                        <th style="text-align:right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${students.map(s => `
+                                        <tr class="searchable-student-row" data-search="${s.name} ${s.regNo}">
+                                            <td>
+                                                <b>${s.name}</b><br>
+                                                <small style="color:var(--text-muted)">${this.parseStudentId(s.regNo) || ''}</small>
+                                            </td>
+                                            <td><code>${s.regNo}</code></td>
+                                            <td style="display:flex; align-items:center; gap:0.5rem;">
+                                                <span style="font-family:monospace; background:rgba(0,0,0,0.05); padding:2px 6px; border-radius:4px;">••••••••</span>
+                                            </td>
+                                            <td style="text-align:center">
+                                                ${s.hasVoted ?
+                        '<span style="background:#dcfce7; color:#166534; padding:0.25rem 0.6rem; border-radius:99px; font-size:0.7rem; font-weight:800;">VOTED</span>' :
+                        '<span style="background:#fef3c7; color:#92400e; padding:0.25rem 0.6rem; border-radius:99px; font-size:0.7rem; font-weight:800;">PENDING</span>'}
+                                            </td>
+                                            <td style="text-align:right">
+                                                <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                                                    <button onclick="window.app.handleAdminChangePassword('${s.regNo}', '${s.name}')" title="Reset Password" style="background:none; border:none; color:var(--primary); cursor:pointer;"><i data-lucide="key" size="16"></i></button>
+                                                    <button onclick="window.app.handleDeleteStudent('${s.id}', '${s.name}')" title="Delete Student" style="background:none; border:none; color:#ef4444; cursor:pointer;"><i data-lucide="trash-2" size="16"></i></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+
+            html += `</div>`; // Close year-section
+        });
+
+        html += `</div>`;
+
+        // Collect all unique departments for the dropdown, including those from existing students
+        const allAvailableDepts = new Set(["CYBER SECURITY", "AIML", "IOT", "CSE", "OTHERS"]);
         api.localStudents.forEach(s => {
             if (s.department) allAvailableDepts.add(s.department);
             else if (s.regNo) {
-                const dCode = s.regNo.toString().substring(6, 9);
-                if (dCode === "107") allAvailableDepts.add("CYBER SECURITY");
-                else if (dCode === "202") allAvailableDepts.add("AIML");
+                allAvailableDepts.add(this.getDeptLabel(s.regNo));
             }
         });
 
-        // Render each department as a "folder" / section
-        departments.forEach(dept => {
-            const students = studentsByDept[dept].sort((a, b) => a.name.localeCompare(b.name));
-            const isExpanded = this.expandedDepts[dept];
-
-            html += `
-                <div class="card-custom mb-5 student-dept-folder" style="padding: 0; overflow: hidden; border: 2px solid var(--primary-light);">
-                    <div onclick="window.app.toggleDept('${dept}')" style="padding: 1.5rem; background: var(--primary-light); display:flex; justify-content:space-between; align-items:center; cursor:pointer; transition: background 0.3s;">
-                        <div style="display:flex; align-items:center; gap:0.75rem;">
-                            <i data-lucide="${isExpanded ? 'folder-open' : 'folder'}" style="color:var(--primary)"></i>
-                            <h3 style="margin:0; color:var(--primary)">${dept}</h3>
-                        </div>
-                        <div style="display:flex; align-items:center; gap:1rem;">
-                            <span style="background:white; color:var(--primary); padding: 0.2rem 0.6rem; border-radius: 99px; font-weight: 800; font-size: 0.8rem;">
-                                ${students.length} Students
-                            </span>
-                            <i data-lucide="${isExpanded ? 'chevron-up' : 'chevron-down'}" style="color:var(--primary); width:20px;"></i>
-                        </div>
-                    </div>
-                    
-                    ${isExpanded ? `
-                    <div class="fade-in">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th>Student Name</th>
-                                    <th>Roll / Reg No</th>
-                                    <th>Password</th>
-                                    <th style="text-align:center">Status</th>
-                                    <th style="text-align:right">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${students.map(s => `
-                                    <tr class="searchable-student-row" data-search="${s.name} ${s.regNo}">
-                                        <td>
-                                            <b>${s.name}</b><br>
-                                            <small style="color:var(--text-muted)">${this.parseStudentId(s.regNo) || ''}</small>
-                                        </td>
-                                        <td><code>${s.regNo}</code></td>
-                                        <td style="display:flex; align-items:center; gap:0.5rem;">
-                                            <span style="font-family:monospace; background:rgba(0,0,0,0.05); padding:2px 6px; border-radius:4px;">••••••••</span>
-                                            <button onclick="window.app.handleAdminChangePassword('${s.regNo}', '${s.name}')" style="background:none; border:none; color:var(--primary); font-size:0.6rem; font-weight:800; cursor:pointer; text-decoration:underline;">CHANGE</button>
-                                        </td>
-                                        <td style="text-align:center">
-                                            <span style="color:${s.hasVoted ? '#10b981' : '#f59e0b'}; font-weight:800; font-size:0.7rem; text-transform:uppercase;">
-                                                ${s.hasVoted ? 'Voted' : 'Pending'}
-                                            </span>
-                                        </td>
-                                        <td style="text-align:right">
-                                            <button onclick="window.app.handleDeleteStudent('${s.id}', '${s.name.replace(/'/g, "\\'")}')" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer">REMOVE</button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                    ` : ''}
-                </div>
-            `;
-        });
-
         html += `
-            </div>
-
             <div class="add-candidate-section">
                 <div style="margin-bottom: 1.5rem;">
                     <h3 style="margin:0">Add New Student</h3>
@@ -1100,6 +1143,8 @@ export class App {
             const deptCode = sr_val.substring(6, 9);
             if (deptCode === "107") department = "CYBER SECURITY";
             else if (deptCode === "202") department = "AIML";
+            else if (deptCode === "205") department = "IOT";
+            else if (deptCode === "104") department = "CSE";
             else department = "OTHERS";
         }
 
