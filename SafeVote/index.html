@@ -92,7 +92,9 @@
                 <button
                     onclick="document.getElementById('features-section').scrollIntoView({behavior:'smooth'}); window.app.toggleMobileMenu(false);"
                     style="background:none; border:none; font-weight:700; color:var(--text-muted); cursor:pointer;">FEATURES</button>
+            </div>
 
+            <div class="flex-between" style="gap:1rem;">
                 <div class="theme-switcher-premium">
                     <button onclick="window.app.setTheme('light')" title="Light Mode" class="theme-btn"
                         data-mode="light">
@@ -106,20 +108,20 @@
                         <i data-lucide="eye" size="16"></i>
                     </button>
                 </div>
-            </div>
 
-            <button class="mobile-toggle" onclick="window.app.toggleMobileMenu()">
-                <i data-lucide="menu"></i>
-            </button>
+                <button class="mobile-toggle" onclick="window.app.toggleMobileMenu()">
+                    <i data-lucide="menu"></i>
+                </button>
 
-            <div id="auth-section" class="hidden flex-between" style="gap:1.5rem;">
-                <div style="text-align:right">
-                    <div id="nav-username" style="font-weight:800; font-size:0.9rem;">User Name</div>
-                    <div id="nav-role" style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">ID:
-                        123456</div>
+                <div id="auth-section" class="hidden flex-between" style="gap:1.5rem;">
+                    <div style="text-align:right">
+                        <div id="nav-username" style="font-weight:800; font-size:0.9rem;">User Name</div>
+                        <div id="nav-role" style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">
+                            ID: 123456</div>
+                    </div>
+                    <button onclick="window.app.logout()"
+                        style="background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.2); color:#ef4444; padding:0.5rem 1rem; border-radius:0.75rem; font-weight:700; cursor:pointer;">EXIT</button>
                 </div>
-                <button onclick="window.app.logout()"
-                    style="background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.2); color:#ef4444; padding:0.5rem 1rem; border-radius:0.75rem; font-weight:700; cursor:pointer;">EXIT</button>
             </div>
         </div>
     </nav>

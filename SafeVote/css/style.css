@@ -268,11 +268,11 @@ p {
 .theme-switcher-premium {
     display: flex;
     gap: 0.5rem;
-    background: #ffffff;
+    background: var(--card-bg);
     padding: 0.4rem;
     border-radius: 99px;
-    border: 1px solid #eef2f6;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow-sm);
 }
 
 .theme-btn {
@@ -633,8 +633,7 @@ p {
     }
 
     .theme-switcher-premium {
-        display: none;
-        /* Hide on very small screens or move to menu */
+        display: flex;
     }
 
     /* Dashboard adjustments */
@@ -695,9 +694,7 @@ p {
     }
 
     #home-nav.mobile-show .theme-switcher-premium {
-        display: flex;
-        justify-content: center;
-        margin-top: 1rem;
+        display: none;
     }
 
     #home-nav.mobile-show button {
