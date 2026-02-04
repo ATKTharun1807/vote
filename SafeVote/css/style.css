@@ -155,14 +155,12 @@ p {
 .search-premium-input:focus {
     outline: none;
     border-color: var(--primary);
-    background: #fff;
     box-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.2), 0 0 0 5px var(--primary-light);
     transform: translateY(-2px);
 }
 
 /* Eye Protection Theme Specific Search adjustment */
 [data-theme="eye-protection"] .search-premium-input:focus {
-    background: #fff;
     border-color: var(--primary);
 }
 
@@ -312,18 +310,18 @@ p {
 .admin-table th {
     padding: 1.5rem;
     text-align: left;
-    background: #f8fafc;
+    background: var(--primary-light);
     color: #64748b;
     font-size: 0.7rem;
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--card-border);
 }
 
 .admin-table td {
     padding: 1.5rem;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--card-border);
     vertical-align: middle;
 }
 
