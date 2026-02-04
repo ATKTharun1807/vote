@@ -31,6 +31,7 @@ export class VotingAPI {
         this.voterIds = [];
         this.isLive = false;
         this.authenticated = false; // Admin auth state
+        this.adminRole = 'NONE'; // SUPER_ADMIN or MODERATOR
         this.isVoter = false; // Student auth state
         this.startTime = null;
         this.endTime = null;
@@ -93,6 +94,7 @@ export class VotingAPI {
 
             // Strict Role Validation
             this.authenticated = data.authenticated || false;
+            this.adminRole = data.adminRole || 'NONE';
             this.isVoter = data.isVoter || false;
 
             // Session validation: If we think we're admin but server says no, logout.
@@ -169,6 +171,7 @@ export class VotingAPI {
             if (res.ok) {
                 const data = await res.json();
                 this.#adminKey = data.token; // Use temporary session token, not master key
+                this.adminRole = data.role;
                 await this.syncData();
                 return data;
             }
@@ -474,6 +477,29 @@ export class VotingAPI {
             return res.ok;
         }
         return false;
+    }
+
+    // Shared Access
+    async fetchAdminAccess() {
+        const res = await fetch(`${this.baseUrl}/api/admin/access-list`, { headers: this.getAuthHeaders() });
+        return res.ok ? await res.json() : [];
+    }
+
+    async addAdminAccess(name) {
+        const res = await fetch(`${this.baseUrl}/api/admin/access-add`, {
+            method: 'POST',
+            headers: this.getAuthHeaders(),
+            body: JSON.stringify({ name })
+        });
+        return res.ok ? await res.json() : null;
+    }
+
+    async deleteAdminAccess(id) {
+        const res = await fetch(`${this.baseUrl}/api/admin/access-remove/${id}`, {
+            method: 'DELETE',
+            headers: this.getAuthHeaders()
+        });
+        return res.ok;
     }
 }
 

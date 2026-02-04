@@ -124,11 +124,21 @@ const VotedDeviceSchema = new mongoose.Schema({
     votedAt: { type: Date, default: Date.now }
 });
 
+const AdminAccessSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    accessKey: { type: String, required: true, unique: true },
+    role: { type: String, default: 'MODERATOR' },
+    permissions: { type: [String], default: ['MANAGE_CANDIDATES', 'MANAGE_STUDENTS'] },
+    lastAccessed: { type: Date },
+    addedAt: { type: Date, default: Date.now }
+});
+
 const Student = mongoose.model('Student', StudentSchema);
 const Candidate = mongoose.model('Candidate', CandidateSchema);
 const Blockchain = mongoose.model('Blockchain', BlockchainSchema);
 const Config = mongoose.model('Config', ConfigSchema);
 const VotedDevice = mongoose.model('VotedDevice', VotedDeviceSchema);
+const AdminAccess = mongoose.model('AdminAccess', AdminAccessSchema);
 
 // Auth Middlewares
 const authAdmin = async (req, res, next) => {
@@ -136,12 +146,23 @@ const authAdmin = async (req, res, next) => {
     try {
         if (!key) return res.status(401).json({ error: "Unauthorized" });
         const config = await Config.findOne({ type: 'main' }).lean();
-        // Allow either master key or temporary session token
+
+        // 1. Primary Master Key or Session Token
         if (config && (config.adminKey === key || config.adminSessionToken === key)) {
-            next();
-        } else {
-            res.status(401).json({ error: "Unauthorized Administrative Access" });
+            req.adminRole = 'SUPER_ADMIN';
+            return next();
         }
+
+        // 2. Shared Admin Access Key
+        const shared = await AdminAccess.findOne({ accessKey: key });
+        if (shared) {
+            req.adminRole = shared.role || 'MODERATOR';
+            req.permissions = shared.permissions;
+            await AdminAccess.updateOne({ _id: shared._id }, { $set: { lastAccessed: new Date() } });
+            return next();
+        }
+
+        res.status(401).json({ error: "Unauthorized Administrative Access" });
     } catch (e) {
         res.status(500).json({ error: "Auth Check Failed" });
     }
@@ -238,6 +259,15 @@ app.get('/api/v1/session', async (req, res) => {
         }
 
         const isAdmin = (config.adminKey === key || config.adminSessionToken === key) && !!key;
+        let adminRole = 'NONE';
+
+        if (isAdmin) {
+            adminRole = 'SUPER_ADMIN';
+        } else if (key) {
+            const shared = await AdminAccess.findOne({ accessKey: key }).lean();
+            if (shared) adminRole = shared.role;
+        }
+
         let isStudentValid = false;
         if (studentToken && regNo) {
             const student = await Student.findOne({ regNo: parseInt(regNo), sessionToken: studentToken }).lean();
@@ -256,11 +286,12 @@ app.get('/api/v1/session', async (req, res) => {
 
         const responseData = {
             config: safeConfig,
-            authenticated: isAdmin,
+            authenticated: adminRole !== 'NONE',
+            adminRole: adminRole,
             isVoter: isStudentValid
         };
 
-        if (isAdmin || electionEnded) {
+        if (adminRole !== 'NONE' || electionEnded) {
             responseData.totalStudents = await Student.countDocuments({});
             responseData.votedCount = await Student.countDocuments({ hasVoted: true });
 
@@ -318,7 +349,15 @@ app.get('/api/candidates/list', async (req, res) => {
         const candidates = await Candidate.find({}).lean();
         const config = await Config.findOne({ type: 'main' }).lean();
         const key = req.headers['x-admin-key'];
-        const isAdmin = config && (config.adminKey === key || config.adminSessionToken === key) && !!key;
+
+        let isAdmin = false;
+        if (config && (config.adminKey === key || config.adminSessionToken === key) && !!key) {
+            isAdmin = true;
+        } else if (key) {
+            const shared = await AdminAccess.findOne({ accessKey: key });
+            if (shared) isAdmin = true;
+        }
+
         const electionEnded = config && config.electionStatus === 'ENDED';
 
         const safeCandidates = candidates.map((c, idx) => {
@@ -344,13 +383,52 @@ app.post('/api/admin/verify', async (req, res) => {
     try {
         const config = await Config.findOne({ type: 'main' });
         if (config && config.adminKey === key && key) {
-            // Generate temporary session token
             const token = crypto.randomBytes(32).toString('hex');
             await Config.updateOne({ type: 'main' }, { $set: { adminSessionToken: token } });
-            res.json({ token });
+            res.json({ token, role: 'SUPER_ADMIN' });
+        } else if (key) {
+            const shared = await AdminAccess.findOne({ accessKey: key });
+            if (shared) {
+                res.json({ token: shared.accessKey, role: shared.role });
+            } else {
+                res.sendStatus(401);
+            }
         } else {
             res.sendStatus(401);
         }
+    } catch (e) {
+        res.status(500).send(e.message);
+    }
+});
+
+// Access Management Routes
+app.get('/api/admin/access-list', authAdmin, async (req, res) => {
+    if (req.adminRole !== 'SUPER_ADMIN') return res.status(403).json({ error: "Restricted to Super Admin" });
+    try {
+        const list = await AdminAccess.find({}).sort({ addedAt: -1 });
+        res.json(list);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/admin/access-add', authAdmin, async (req, res) => {
+    if (req.adminRole !== 'SUPER_ADMIN') return res.status(403).json({ error: "Restricted to Super Admin" });
+    const { name } = req.body;
+    try {
+        const key = `ADM-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+        const access = await AdminAccess.create({ name, accessKey: key });
+        res.json(access);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.delete('/api/admin/access-remove/:id', authAdmin, async (req, res) => {
+    if (req.adminRole !== 'SUPER_ADMIN') return res.status(403).json({ error: "Restricted to Super Admin" });
+    try {
+        await AdminAccess.findByIdAndDelete(req.params.id);
+        res.sendStatus(200);
     } catch (e) {
         res.status(500).send(e.message);
     }
@@ -402,8 +480,13 @@ app.post('/api/students/reset-password', async (req, res) => {
 
         const config = await Config.findOne({ type: 'main' }).lean();
         const isAdmin = config && (config.adminKey === key || config.adminSessionToken === key) && !!key;
+        let isSharedAdmin = false;
+        if (!isAdmin && key) {
+            const shared = await AdminAccess.findOne({ accessKey: key });
+            if (shared) isSharedAdmin = true;
+        }
 
-        if (isAdmin) {
+        if (isAdmin || isSharedAdmin) {
             // Admin can reset without current password
             const hashedPassword = hashPassword(newPassword);
             await Student.updateOne({ regNo: reg }, { $set: { password: hashedPassword } });
@@ -466,6 +549,9 @@ app.delete('/api/students/:id', authAdmin, async (req, res) => {
 app.post('/api/config/update', authAdmin, async (req, res) => {
     const updates = req.body;
     try {
+        if (req.adminRole !== 'SUPER_ADMIN' && updates.adminKey) {
+            return res.status(403).json({ error: "Only Super Admin can change the master key." });
+        }
         if (updates.electionStatus === 'ONGOING') {
             const currentConfig = await Config.findOne({ type: 'main' });
             const startTime = updates.startTime || (currentConfig ? currentConfig.startTime : null);
@@ -626,6 +712,7 @@ app.get('/api/blockchain/verify', authAdmin, async (req, res) => {
 
 // Reset All
 app.post('/api/reset-all', authAdmin, async (req, res) => {
+    if (req.adminRole !== 'SUPER_ADMIN') return res.status(403).json({ error: "Restricted to Super Admin" });
     try {
         await Candidate.updateMany({}, { $set: { votes: 0 } });
         await Blockchain.deleteMany({});

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VOTE CHAIN- Secure Student Elections</title>
+    <title>VOTE CHAIN - Secure Student Elections</title>
     <meta name="description"
         content="Secure, transparent, and decentralized student elections powered by blockchain technology.">
 
@@ -86,11 +86,9 @@
                 </div>
                 <button onclick="window.app.showHome(); window.app.toggleMobileMenu(false);"
                     style="background:none; border:none; font-weight:700; color:var(--text-muted); cursor:pointer;">HOME</button>
-                <button
-                    onclick="document.getElementById('about-section').scrollIntoView({behavior:'smooth'}); window.app.toggleMobileMenu(false);"
+                <button onclick="window.app.scrollToSection('about-section');"
                     style="background:none; border:none; font-weight:700; color:var(--text-muted); cursor:pointer;">ABOUT</button>
-                <button
-                    onclick="document.getElementById('features-section').scrollIntoView({behavior:'smooth'}); window.app.toggleMobileMenu(false);"
+                <button onclick="window.app.scrollToSection('features-section');"
                     style="background:none; border:none; font-weight:700; color:var(--text-muted); cursor:pointer;">FEATURES</button>
             </div>
 
@@ -206,7 +204,7 @@
                     <div class="feature-box">
                         <div class="feature-icon"><i data-lucide="search"></i></div>
                         <div class="feature-title">Live Search</div>
-                        <p class="feature-desc">Instantly filter through Dozens of candidates to find your preferred
+                        <p class="feature-desc">Instantly filter through dozens of candidates to find your preferred
                             choice.</p>
                     </div>
                     <div class="feature-box">

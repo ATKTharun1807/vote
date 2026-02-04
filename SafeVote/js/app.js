@@ -214,6 +214,23 @@ export class App {
         }
     }
 
+    scrollToSection(id) {
+        // First ensure we are on the home view
+        const homeView = document.getElementById('home-view');
+        if (homeView && homeView.classList.contains('hidden')) {
+            this.showHome(true);
+        }
+
+        // Delay slightly to allow view transition/rendering
+        setTimeout(() => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+                this.toggleMobileMenu(false);
+            }
+        }, 100);
+    }
+
     toggleView(id) {
         const views = ['home-view', 'student-login-view', 'admin-login-view', 'dashboard-view'];
         views.forEach(v => {
@@ -931,8 +948,84 @@ export class App {
             <div style="margin-top:4rem; text-align:center">
                  <button onclick="window.app.handleReset()" class="btn-primary-custom" style="background:#e11d48; padding:0.5rem 2rem; font-size:0.8rem">RESET SYSTEM DATA</button>
             </div>
+
+            ${api.adminRole === 'SUPER_ADMIN' ? `
+                <div class="card-custom mt-5" style="border: none; background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(168, 85, 247, 0.05) 100%); margin-top: 4rem; position: relative; overflow: hidden;">
+                    <div style="padding: 2rem; border-bottom: 1px solid var(--card-border); display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap: 1rem;">
+                            <div style="background: var(--primary); color:white; width: 40px; height: 40px; border-radius: 12px; display:flex; align-items:center; justify-content:center;">
+                                <i data-lucide="shield-plus" size="20"></i>
+                            </div>
+                            <h3 style="margin:0; font-size: 1.1rem;">Manage Shared Access</h3>
+                        </div>
+                    </div>
+                    
+                    <div style="padding: 2rem;">
+                        <p style="color:var(--text-muted); font-size: 0.9rem; margin-top: 0;">Generate moderator keys to allow others to manage this election without knowing your master key.</p>
+                        
+                        <div id="admin-access-container" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; margin: 1.5rem 0;">
+                            <!-- Keys will be injected here -->
+                            <div style="text-align:center; padding: 2rem; color:var(--text-muted); grid-column: 1/-1;">Loading...</div>
+                        </div>
+
+                        <div style="display:flex; gap: 1rem; mt: 2rem; border-top: 1px solid var(--card-border); pt: 1.5rem;">
+                            <input type="text" id="new-access-name" class="form-input" placeholder="Name of recipient (e.g. Dept HOD)" style="flex-grow:1;">
+                            <button onclick="window.app.handleCreateAccess()" class="btn-primary-custom" style="padding: 0.75rem 2rem; white-space:nowrap;">GRANT ACCESS</button>
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
         `;
         container.innerHTML = html;
+        if (api.adminRole === 'SUPER_ADMIN') this.refreshAdminAccessList();
+    }
+
+    async refreshAdminAccessList() {
+        const list = await api.fetchAdminAccess();
+        const container = document.getElementById('admin-access-container');
+        if (!container) return;
+
+        if (list.length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding: 2rem; color:var(--text-muted); grid-column: 1/-1;">No shared keys active.</div>`;
+            return;
+        }
+
+        container.innerHTML = list.map(a => `
+            <div class="card-custom" style="padding: 1.25rem; border: 1px solid var(--card-border); background: var(--card-bg);">
+                <div style="font-weight: 800; font-size: 0.95rem; margin-bottom: 0.5rem;">${a.name}</div>
+                <div style="background: var(--primary-light); border: 1px dashed var(--primary); padding: 0.75rem; border-radius: 8px; display:flex; align-items:center; justify-content:space-between; margin-bottom: 1rem;">
+                    <code style="font-size: 1.1rem; font-weight: 900; color: var(--primary);">${a.accessKey}</code>
+                    <button onclick="navigator.clipboard.writeText('${a.accessKey}'); window.app.showToast('Copied!')" style="background:none; border:none; cursor:pointer; color:var(--primary);">
+                        <i data-lucide="copy" size="16"></i>
+                    </button>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">${a.lastAccessed ? 'Last used: ' + new Date(a.lastAccessed).toLocaleDateString() : 'Never used'}</div>
+                    <button onclick="window.app.handleRevokeAccess('${a._id}')" style="background:none; border:none; color:#ef4444; font-size: 0.75rem; font-weight: 800; cursor:pointer;">REVOKE</button>
+                </div>
+            </div>
+        `).join('');
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    async handleCreateAccess() {
+        const name = document.getElementById('new-access-name').value.trim();
+        if (!name) return this.showToast("Enter a name first", "error");
+        const res = await api.addAdminAccess(name);
+        if (res) {
+            this.showToast(`Access granted for ${name}`);
+            this.refreshAdminAccessList();
+            document.getElementById('new-access-name').value = '';
+        }
+    }
+
+    async handleRevokeAccess(id) {
+        if (confirm("Revoke this access key?")) {
+            if (await api.deleteAdminAccess(id)) {
+                this.showToast("Access key revoked");
+                this.refreshAdminAccessList();
+            }
+        }
     }
 
     renderStudentsTab(container) {
