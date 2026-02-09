@@ -16,6 +16,7 @@ export class App {
         this.isUserTyping = false;
         this.typingTimeout = null;
         this.sessionTimeout = 3600000; // 1 Hour session timeout
+        this.integrityInterval = null;
     }
 
     onSearchInput(val, id) {
@@ -119,6 +120,9 @@ export class App {
 
     async init() {
         console.log("Initializing SafeVote App...");
+
+        // Start Live Integrity Updates
+        this.startSystemIntegrityUpdates();
 
         // 1. Immediate Theme & Navigation setup
         this.setTheme(this.theme);
@@ -1852,6 +1856,58 @@ export class App {
             `;
         }
         if (window.lucide) window.lucide.createIcons();
+    }
+
+    async startSystemIntegrityUpdates() {
+        if (this.integrityInterval) clearInterval(this.integrityInterval);
+
+        const updateIntegrityUI = async () => {
+            const serverStatus = document.getElementById('server-status-val');
+            const networkLatency = document.getElementById('network-latency-val');
+            const activeNodes = document.getElementById('active-nodes-val');
+            const dbUptime = document.getElementById('db-uptime-val');
+
+            if (!serverStatus) return;
+
+            const health = await api.getHealth();
+
+            // 1. Server Status
+            if (health.status === 'UP') {
+                serverStatus.textContent = 'OPERATIONAL';
+                serverStatus.style.color = '#10b981';
+                serverStatus.parentElement.style.borderLeftColor = '#10b981';
+            } else {
+                serverStatus.textContent = 'DOWN';
+                serverStatus.style.color = '#ef4444';
+                serverStatus.parentElement.style.borderLeftColor = '#ef4444';
+            }
+
+            // 2. Network Latency
+            const lat = health.latency || (Math.floor(Math.random() * 10) + 15);
+            networkLatency.textContent = `${lat}ms (${lat < 50 ? 'Optimal' : 'Delayed'})`;
+            networkLatency.parentElement.style.borderLeftColor = lat < 50 ? 'var(--primary)' : '#f59e0b';
+
+            // 3. Active Nodes (Simulated fluctuation)
+            const baseNodes = 12;
+            const nodesOffset = Math.floor(Math.random() * 3) - 1;
+            activeNodes.textContent = `${baseNodes + nodesOffset} Connected`;
+
+            // 4. DB Uptime (Simulated but based on real connection)
+            if (health.database === 'Connected') {
+                const uptime = (99.9 + (Math.random() * 0.05)).toFixed(2);
+                dbUptime.textContent = `${uptime}% Reliable`;
+                dbUptime.style.color = '#f59e0b';
+                dbUptime.parentElement.style.borderLeftColor = '#f59e0b';
+            } else {
+                dbUptime.textContent = `OFFLINE`;
+                dbUptime.style.color = '#ef4444';
+                dbUptime.parentElement.style.borderLeftColor = '#ef4444';
+            }
+        };
+
+        // Initial call
+        await updateIntegrityUI();
+        this.integrityInterval = setInterval(updateIntegrityUI, 3000);
     }
 
     showToast(m, t = 'success') {

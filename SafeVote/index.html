@@ -259,27 +259,31 @@
                         <h3
                             style="font-size: 0.8rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
                             <i data-lucide="activity" size="14"></i> System Integrity
+                            <span class="pulse-dot"
+                                style="width: 6px; height: 6px; background: #10b981; border-radius: 50%; display: inline-block;"></span>
                         </h3>
                         <div style="display: grid; gap: 1.25rem;">
                             <div style="border-left: 3px solid #10b981; padding-left: 1rem;">
                                 <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">SERVER
                                     STATUS</div>
-                                <div style="font-size: 1rem; font-weight: 800; color: #10b981;">OPERATIONAL</div>
+                                <div id="server-status-val" style="font-size: 1rem; font-weight: 800; color: #10b981;">
+                                    OPERATIONAL</div>
                             </div>
                             <div style="border-left: 3px solid var(--primary); padding-left: 1rem;">
                                 <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">NETWORK
                                     LATENCY</div>
-                                <div style="font-size: 1rem; font-weight: 800;">24ms (Optimal)</div>
+                                <div id="network-latency-val" style="font-size: 1rem; font-weight: 800;">24ms (Optimal)
+                                </div>
                             </div>
                             <div style="border-left: 3px solid #6366f1; padding-left: 1rem;">
                                 <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">ACTIVE NODES
                                 </div>
-                                <div style="font-size: 1rem; font-weight: 800;">12 Connected</div>
+                                <div id="active-nodes-val" style="font-size: 1rem; font-weight: 800;">12 Connected</div>
                             </div>
                             <div style="border-left: 3px solid #f59e0b; padding-left: 1rem;">
                                 <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">DB UPTIME
                                 </div>
-                                <div style="font-size: 1rem; font-weight: 800;">99.9% Reliable</div>
+                                <div id="db-uptime-val" style="font-size: 1rem; font-weight: 800;">99.9% Reliable</div>
                             </div>
                         </div>
                     </div>

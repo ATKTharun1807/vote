@@ -47,6 +47,22 @@ export class VotingAPI {
         return headers;
     }
 
+    async getHealth() {
+        try {
+            const start = Date.now();
+            const res = await fetch(`${this.baseUrl}/api/health`);
+            const end = Date.now();
+            if (!res.ok) throw new Error();
+            const data = await res.json();
+            return {
+                ...data,
+                latency: end - start
+            };
+        } catch (e) {
+            return { status: 'DOWN', database: 'Unknown', uptime: 0, latency: 0 };
+        }
+    }
+
     async initAuth() {
         this.loadFromStorage();
         try {

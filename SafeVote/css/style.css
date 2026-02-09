@@ -1004,3 +1004,24 @@ p {
 .custom-select-options::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
 }
+
+@keyframes pulse-dot {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.5);
+        opacity: 0.7;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.pulse-dot {
+    animation: pulse-dot 2s infinite ease-in-out;
+}
