@@ -59,7 +59,11 @@ function calculateBlockHash(index, timestamp, data, previousHash) {
 }
 
 // MongoDB Connection
-const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://stharunkumar069_db_user:siet%40123@cluster0.frcnaxx.mongodb.net/safevote?retryWrites=true&w=majority&appName=Cluster0";
+const MONGO_URI = process.env.MONGO_URI;
+if (!MONGO_URI) {
+    console.error("❌ FATAL ERROR: MONGO_URI not found in environment variables!");
+    process.exit(1);
+}
 const JWT_SALT = process.env.VOTER_SALT || "safevote_salt_2024";
 
 console.log("🚀 Starting SafeVote Server...");
@@ -198,8 +202,50 @@ const voteLimiter = rateLimit({
     message: { error: "Security limit reached. Please contact admin if this is an error." }
 });
 
-app.use(cors());
+// Security Headers Middleware
+app.use((req, res, next) => {
+    // Prevent Clickjacking
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+
+    // Prevent MIME sniffing
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+
+    // HSTS (Strict Transport Security)
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+
+    // Referrer Policy
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+    // Content Security Policy (CSP)
+    // Adjusting to allow necessary external resources
+    res.setHeader('Content-Security-Policy',
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; " +
+        "img-src 'self' data: https://www.shutterstock.com; " +
+        "font-src 'self' https://fonts.gstatic.com; " +
+        "connect-src 'self' https://vote-b8ro.onrender.com; " +
+        "frame-ancestors 'none';"
+    );
+
+    // Remove X-Powered-By
+    res.removeHeader('X-Powered-By');
+
+    next();
+});
+
+// Configure CORS
+const corsOptions = {
+    origin: ['https://vote-b8ro.onrender.com', 'http://localhost:8081'], // Add any other allowed origins
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+    optionsSuccessStatus: 204
+};
+app.use(cors(corsOptions));
 app.use(express.json());
+
+// Disable x-powered-by specifically via express setting
+app.disable('x-powered-by');
 
 // Apply limiters to auth routes
 app.use('/api/admin/verify', loginLimiter);
