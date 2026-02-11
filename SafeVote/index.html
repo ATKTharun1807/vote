@@ -139,6 +139,10 @@
                         style="padding:1.5rem 3rem; display:flex; align-items:center; gap:0.75rem;">
                         <i data-lucide="user" size="24"></i> STUDENT LOGIN
                     </button>
+                    <button onclick="window.app.showView('staff-login')" class="btn-primary-custom"
+                        style="padding:1.5rem 3rem; background:var(--accent); display:flex; align-items:center; gap:0.75rem;">
+                        <i data-lucide="award" size="24"></i> STAFF LOGIN
+                    </button>
                     <button id="admin-portal-btn" onclick="window.app.showView('admin-login')"
                         class="btn-primary-custom"
                         style="padding:1.5rem 3rem; background:var(--card-bg); color:var(--text-main); border:2px solid var(--card-border); display:flex; align-items:center; gap:0.75rem;">
@@ -246,6 +250,39 @@
                     </div>
                     <button onclick="window.app.handleStudentLogin()" class="btn-primary-custom"
                         style="width:100%; padding:1.25rem;">Verify & Enter Portal</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- STAFF LOGIN -->
+        <div id="staff-login-view" class="hidden fade-in">
+            <div class="auth-container">
+                <div class="card-custom" style="text-align:center; position:relative;">
+                    <button onclick="window.app.showHome()"
+                        style="position:absolute; top:20px; left:20px; background:none; border:none; color:var(--text-muted); cursor:pointer; font-weight:700;"><i
+                            data-lucide="move-left"></i> BACK</button>
+                    <div class="login-img-container">
+                        <i data-lucide="award" size="60" style="color:var(--accent)"></i>
+                    </div>
+                    <h2 style="font-size:2rem; font-weight:900; margin-bottom:0.5rem">Staff Access</h2>
+                    <p style="color:var(--text-muted); margin-bottom:2rem">Enter your unique staff ID to login.</p>
+                    <div class="form-group">
+                        <label class="form-label">Staff ID Number</label>
+                        <input type="text" id="staff-id-input" class="form-input" placeholder="e.g. STF123"
+                            onkeyup="if(event.key==='Enter') window.app.handleStaffLogin()">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <div style="position: relative;">
+                            <input type="password" id="staff-pass-input" class="form-input" placeholder="••••••••"
+                                onkeyup="if(event.key==='Enter') window.app.handleStaffLogin()">
+                            <i data-lucide="eye" id="toggle-staff-pass-icon"
+                                onclick="window.app.togglePasswordVisibility('staff-pass-input', 'toggle-staff-pass-icon')"
+                                style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; width: 18px; height: 18px;"></i>
+                        </div>
+                    </div>
+                    <button onclick="window.app.handleStaffLogin()" class="btn-primary-custom"
+                        style="width:100%; padding:1.25rem; background:var(--accent);">Verify & Enter Portal</button>
                 </div>
             </div>
         </div>
@@ -410,7 +447,11 @@
                     </button>
                     <button id="tab-students" onclick="window.app.switchTab('students')" class="nav-tab hidden"
                         style="display:flex; align-items:center; gap:0.5rem;">
-                        <i data-lucide="users" size="16"></i> DEPARTMENT
+                        <i data-lucide="users" size="16"></i> STUDENT
+                    </button>
+                    <button id="tab-staff" onclick="window.app.switchTab('staff')" class="nav-tab hidden"
+                        style="display:flex; align-items:center; gap:0.5rem;">
+                        <i data-lucide="briefcase" size="16"></i> STAFF LOGIN
                     </button>
                     <button id="tab-blockchain" onclick="window.app.switchTab('blockchain')" class="nav-tab"
                         style="display:flex; align-items:center; gap:0.5rem;">

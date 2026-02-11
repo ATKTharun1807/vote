@@ -5,11 +5,29 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
-// Load environment variables manually if dotenv is missing
+// Load environment variables
 try {
     require('dotenv').config();
 } catch (e) {
-    console.warn("⚠️  dotenv not found, using system environment variables.");
+    console.warn("⚠️  dotenv package not found. Attempting to load .env manually.");
+    try {
+        const envPath = path.join(__dirname, '.env');
+        if (fs.existsSync(envPath)) {
+            const envContent = fs.readFileSync(envPath, 'utf8');
+            envContent.split(/\r?\n/).forEach(line => {
+                const entry = line.trim();
+                if (entry && !entry.startsWith('#')) {
+                    const [key, ...val] = entry.split('=');
+                    if (key && val.length > 0) {
+                        process.env[key.trim()] = val.join('=').trim();
+                    }
+                }
+            });
+            console.log("✅ Loaded .env variables manually.");
+        }
+    } catch (err) {
+        console.error("❌ Failed to load .env manually:", err.message);
+    }
 }
 
 // Built-in Rate Limiter Fallback
@@ -138,6 +156,18 @@ const AdminAccessSchema = new mongoose.Schema({
 });
 
 const Student = mongoose.model('Student', StudentSchema);
+
+const StaffSchema = new mongoose.Schema({
+    staffId: { type: String, required: true, unique: true },
+    name: String,
+    department: { type: String, default: 'STAFF' },
+    password: { type: String, required: true },
+    hasVoted: { type: Boolean, default: false },
+    addedAt: { type: Date, default: Date.now },
+    sessionToken: { type: String, default: null }
+});
+
+const Staff = mongoose.model('Staff', StaffSchema);
 const Candidate = mongoose.model('Candidate', CandidateSchema);
 const Blockchain = mongoose.model('Blockchain', BlockchainSchema);
 const Config = mongoose.model('Config', ConfigSchema);
@@ -183,6 +213,23 @@ const authStudent = async (req, res, next) => {
             next();
         } else {
             res.status(401).json({ error: "Invalid student session" });
+        }
+    } catch (e) {
+        res.status(500).json({ error: "Security check failed" });
+    }
+};
+
+const authStaff = async (req, res, next) => {
+    const token = req.headers['x-staff-token'];
+    const staffId = req.body.staffId || req.query.staffId;
+    try {
+        if (!token || !staffId) return res.status(401).json({ error: "Staff session missing" });
+        const staff = await Staff.findOne({ staffId: staffId, sessionToken: token });
+        if (staff) {
+            req.staff = staff;
+            next();
+        } else {
+            res.status(401).json({ error: "Invalid staff session" });
         }
     } catch (e) {
         res.status(500).json({ error: "Security check failed" });
@@ -250,6 +297,7 @@ app.disable('x-powered-by');
 // Apply limiters to auth routes
 app.use('/api/admin/verify', loginLimiter);
 app.use('/api/students/verify', loginLimiter);
+app.use('/api/staff/verify', loginLimiter);
 app.use('/api/vote', voteLimiter);
 
 // Security: Only serve specific directories/files to prevent leaking server.js
@@ -274,6 +322,8 @@ app.get('/api/v1/session', async (req, res) => {
     const key = req.headers['x-admin-key'];
     const studentToken = req.headers['x-student-token'];
     const regNo = req.headers['x-reg-no'];
+    const staffToken = req.headers['x-staff-token'];
+    const staffId = req.headers['x-staff-id'];
 
     try {
         if (mongoose.connection.readyState !== 1) {
@@ -320,6 +370,12 @@ app.get('/api/v1/session', async (req, res) => {
             if (student) isStudentValid = true;
         }
 
+        let isStaffValid = false;
+        if (staffToken && staffId) {
+            const staff = await Staff.findOne({ staffId: staffId, sessionToken: staffToken }).lean();
+            if (staff) isStaffValid = true;
+        }
+
         const electionEnded = config.electionStatus === 'ENDED';
 
         const safeConfig = {
@@ -334,7 +390,7 @@ app.get('/api/v1/session', async (req, res) => {
             config: safeConfig,
             authenticated: adminRole !== 'NONE',
             adminRole: adminRole,
-            isVoter: isStudentValid
+            isVoter: isStudentValid || isStaffValid
         };
 
         if (adminRole !== 'NONE' || electionEnded) {
@@ -515,6 +571,39 @@ app.post('/api/students/verify', async (req, res) => {
     }
 });
 
+// Staff Verification
+app.post('/api/staff/verify', async (req, res) => {
+    const { staffId, password } = req.body;
+    try {
+        const staff = await Staff.findOne({ staffId });
+        if (staff) {
+            const isMatch = verifyPassword(password, staff.password);
+
+            if (!isMatch) return res.sendStatus(401);
+
+            if (!staff.password.includes(':')) {
+                staff.password = hashPassword(password);
+            }
+
+            const token = crypto.randomBytes(32).toString('hex');
+            staff.sessionToken = token;
+            await staff.save();
+
+            res.json({
+                id: staff._id,
+                staffId: staff.staffId,
+                name: staff.name,
+                department: staff.department,
+                hasVoted: staff.hasVoted,
+                token: token
+            });
+        }
+        else res.sendStatus(401);
+    } catch (e) {
+        res.status(500).send(e.message);
+    }
+});
+
 // Student Password Reset
 app.post('/api/students/reset-password', async (req, res) => {
     const { regNo, newPassword, currentPassword, token } = req.body;
@@ -591,6 +680,54 @@ app.delete('/api/students/:id', authAdmin, async (req, res) => {
     }
 });
 
+// Staff Management
+app.get('/api/staff/list', authAdmin, async (req, res) => {
+    try {
+        const staff = await Staff.find({}).lean();
+        const safeStaff = staff.map(s => ({
+            id: s._id,
+            staffId: s.staffId,
+            name: s.name,
+            department: s.department,
+            hasVoted: s.hasVoted
+        }));
+
+        const masked = Buffer.from(JSON.stringify(safeStaff)).toString('base64');
+        res.json({ p: masked });
+    } catch (e) {
+        res.status(500).json({ error: "Access Error" });
+    }
+});
+
+app.post('/api/staff/add', authAdmin, async (req, res) => {
+    const { staffId, name, password, department } = req.body;
+    try {
+        const exists = await Staff.findOne({ staffId });
+        if (exists) return res.status(400).json({ error: "Staff ID already exists" });
+
+        const hashedPassword = hashPassword(password || 'REPLACE_ME');
+        await Staff.create({
+            staffId,
+            name,
+            department: department || 'STAFF',
+            password: hashedPassword,
+            hasVoted: false
+        });
+        res.sendStatus(200);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.delete('/api/staff/:id', authAdmin, async (req, res) => {
+    try {
+        await Staff.findByIdAndDelete(req.params.id);
+        res.sendStatus(200);
+    } catch (e) {
+        res.status(500).send(e.message);
+    }
+});
+
 // Update Config
 app.post('/api/config/update', authAdmin, async (req, res) => {
     const updates = req.body;
@@ -650,8 +787,19 @@ app.delete('/api/candidates/:id', authAdmin, async (req, res) => {
 });
 
 // Cast Vote
-app.post('/api/vote', authStudent, async (req, res) => {
-    const { regNo, candidateId, voterHash, deviceFingerprint } = req.body;
+app.post('/api/vote', async (req, res, next) => {
+    const studentToken = req.headers['x-student-token'];
+    const staffToken = req.headers['x-staff-token'];
+
+    if (studentToken) {
+        return authStudent(req, res, next);
+    } else if (staffToken) {
+        return authStaff(req, res, next);
+    } else {
+        res.status(401).json({ error: "Authentication required" });
+    }
+}, async (req, res) => {
+    const { regNo, staffId, candidateId, voterHash, deviceFingerprint } = req.body;
 
     try {
         const config = await Config.findOne({ type: 'main' });
@@ -659,8 +807,8 @@ app.post('/api/vote', authStudent, async (req, res) => {
             return res.status(400).json({ error: "Election is not active." });
         }
 
-        const student = req.student; // From authStudent middleware
-        if (student.hasVoted) return res.status(400).json({ error: "Already voted" });
+        const voter = req.student || req.staff;
+        if (voter.hasVoted) return res.status(400).json({ error: "Already voted" });
 
         // Device-based Check
         if (deviceFingerprint) {
@@ -672,9 +820,9 @@ app.post('/api/vote', authStudent, async (req, res) => {
             return res.status(400).json({ error: "Device identification missing." });
         }
 
-        // Check Department Restriction
-        if (config.allowedDepartments && config.allowedDepartments.length > 0) {
-            if (!config.allowedDepartments.includes(student.department)) {
+        // Check Department Restriction (Skip for staff if needed, or include STAFF in allowed)
+        if (req.student && config.allowedDepartments && config.allowedDepartments.length > 0) {
+            if (!config.allowedDepartments.includes(voter.department)) {
                 return res.status(403).json({ error: `Election restricted to specific departments.` });
             }
         }
@@ -705,7 +853,12 @@ app.post('/api/vote', authStudent, async (req, res) => {
         const hash = calculateBlockHash(nextIndex, timestamp, blockData, previousHash);
 
         // Atomic update
-        await Student.updateOne({ _id: student._id }, { $set: { hasVoted: true, sessionToken: null } }); // Token invalidated after vote
+        if (req.student) {
+            await Student.updateOne({ _id: voter._id }, { $set: { hasVoted: true, sessionToken: null } });
+        } else {
+            await Staff.updateOne({ _id: voter._id }, { $set: { hasVoted: true, sessionToken: null } });
+        }
+
         await Candidate.findByIdAndUpdate(candidate._id, { $inc: { votes: 1 } });
         await VotedDevice.create({ fingerprint: deviceFingerprint });
 
@@ -763,6 +916,7 @@ app.post('/api/reset-all', authAdmin, async (req, res) => {
         await Candidate.updateMany({}, { $set: { votes: 0 } });
         await Blockchain.deleteMany({});
         await Student.updateMany({}, { $set: { hasVoted: false, sessionToken: null } });
+        await Staff.updateMany({}, { $set: { hasVoted: false, sessionToken: null } });
         await VotedDevice.deleteMany({});
         await Config.updateOne({ type: 'main' }, {
             $set: {

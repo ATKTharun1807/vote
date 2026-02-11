@@ -3,6 +3,8 @@ export class VotingAPI {
     #adminKey = null; // Session-based key (Private)
     #studentToken = null; // Secure token (Private)
     #regNo = null; // Locked regNo (Private)
+    #staffToken = null; // Secure token (Private)
+    #staffId = null; // Locked staffId (Private)
 
     constructor() {
         // --- PRODUCTION CONFIGURATION ---
@@ -26,7 +28,9 @@ export class VotingAPI {
         this.localCandidates = [];
         this.localBlockchain = [];
         this.localStudents = [];
+        this.localStaff = [];
         this.totalRegisteredStudents = 0;
+        this.totalRegisteredStaff = 0;
         this.totalVotersCount = 0;
         this.voterIds = [];
         this.isLive = false;
@@ -44,6 +48,8 @@ export class VotingAPI {
         if (this.#adminKey) headers['X-Admin-Key'] = this.#adminKey;
         if (this.#studentToken) headers['X-Student-Token'] = this.#studentToken;
         if (this.#regNo) headers['X-Reg-No'] = this.#regNo.toString();
+        if (this.#staffToken) headers['X-Staff-Token'] = this.#staffToken;
+        if (this.#staffId) headers['X-Staff-Id'] = this.#staffId.toString();
         return headers;
     }
 
@@ -125,6 +131,14 @@ export class VotingAPI {
             if (this.#studentToken && !this.isVoter) {
                 console.warn("Student Session invalid. Logging out...");
                 this.#studentToken = null;
+                if (window.app) window.app.logout();
+                return;
+            }
+
+            // Staff session validation
+            if (this.#staffToken && !this.isVoter) {
+                console.warn("Staff Session invalid. Logging out...");
+                this.#staffToken = null;
                 if (window.app) window.app.logout();
                 return;
             }
@@ -257,9 +271,36 @@ export class VotingAPI {
         }
     }
 
+    async verifyStaff(staffId, pass) {
+        try {
+            const res = await fetch(`${this.baseUrl}/api/staff/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ staffId, password: pass })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                this.setStaffSession(data.staffId, data.token);
+                return data;
+            }
+            return null;
+        } catch (e) {
+            return null;
+        }
+    }
+
     setStudentSession(regNo, token) {
         this.#regNo = regNo;
         this.#studentToken = token;
+        this.#staffId = null;
+        this.#staffToken = null;
+    }
+
+    setStaffSession(staffId, token) {
+        this.#staffId = staffId;
+        this.#staffToken = token;
+        this.#regNo = null;
+        this.#studentToken = null;
     }
 
     async updateStudentPassword(vid, currentPass, newPass) {
@@ -294,18 +335,22 @@ export class VotingAPI {
 
     async castVote(vid, cid) {
         try {
-            const voterHash = await this.hashID(vid.toString());
+            const voterHash = await this.hashID(vid ? vid.toString() : this.#staffId);
             const deviceFingerprint = await this.#getDeviceFingerprint();
+
+            const body = {
+                candidateId: cid,
+                voterHash,
+                deviceFingerprint
+            };
+
+            if (vid) body.regNo = parseInt(vid);
+            else body.staffId = this.#staffId;
 
             const res = await fetch(`${this.baseUrl}/api/vote`, {
                 method: 'POST',
                 headers: this.getAuthHeaders(),
-                body: JSON.stringify({
-                    regNo: parseInt(vid),
-                    candidateId: cid,
-                    voterHash,
-                    deviceFingerprint
-                })
+                body: JSON.stringify(body)
             });
 
             if (!res.ok) {
@@ -313,9 +358,11 @@ export class VotingAPI {
                 return { success: false, msg: errData.error || "Voting failed" };
             }
 
-            // Student session is invalidated on server after vote
+            // Session is invalidated on server after vote
             this.#studentToken = null;
             this.#regNo = null;
+            this.#staffToken = null;
+            this.#staffId = null;
             await this.syncData();
             return { success: true };
         } catch (e) {
@@ -466,6 +513,51 @@ export class VotingAPI {
 
     async deleteStudent(id) {
         await fetch(`${this.baseUrl}/api/students/${id}`, {
+            method: 'DELETE',
+            headers: this.getAuthHeaders()
+        });
+        await this.syncData();
+    }
+
+    async fetchStaff() {
+        try {
+            const res = await fetch(`${this.baseUrl}/api/staff/list`, {
+                headers: this.getAuthHeaders()
+            });
+            if (res.ok) {
+                const envelope = await res.json();
+                this.localStaff = this.#decode(envelope.p);
+                return this.localStaff;
+            }
+            return [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    async addStaff(staffId, name, password, department = "STAFF") {
+        try {
+            const res = await fetch(`${this.baseUrl}/api/staff/add`, {
+                method: 'POST',
+                headers: this.getAuthHeaders(),
+                body: JSON.stringify({ staffId, name, password, department })
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || "Failed to add staff");
+            }
+
+            await this.syncData();
+            return { success: true };
+        } catch (e) {
+            console.error("Add Staff Error:", e);
+            return { success: false, message: e.message };
+        }
+    }
+
+    async deleteStaff(id) {
+        await fetch(`${this.baseUrl}/api/staff/${id}`, {
             method: 'DELETE',
             headers: this.getAuthHeaders()
         });

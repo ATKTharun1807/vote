@@ -140,6 +140,7 @@ export class App {
         const savedRole = localStorage.getItem('safevote-role');
         const savedAdminKey = localStorage.getItem('safevote-admin-key');
         const savedStudentToken = localStorage.getItem('safevote-student-token');
+        const savedStaffToken = localStorage.getItem('safevote-staff-token');
         const lastActive = localStorage.getItem('safevote-last-active');
 
         const now = Date.now();
@@ -153,6 +154,7 @@ export class App {
             // Prepare API with stored credentials
             if (savedAdminKey && this.role === 'admin') api.setAdminKey(savedAdminKey);
             if (savedStudentToken && this.role === 'voter') api.setStudentSession(this.currentUser.regNo, savedStudentToken);
+            if (savedStaffToken && this.role === 'voter') api.setStaffSession(this.currentUser.staffId, savedStaffToken);
 
             // Load cached data for instant display
             api.loadFromStorage();
@@ -179,6 +181,8 @@ export class App {
 
         if (this.studentLinkMode) {
             this.showView('student-login', false);
+        } else if (view === 'staff') {
+            this.showView('staff-login', false);
         } else if (view === 'admin') {
             this.showView('admin-login', false);
         } else {
@@ -236,7 +240,7 @@ export class App {
     }
 
     toggleView(id) {
-        const views = ['home-view', 'student-login-view', 'admin-login-view', 'dashboard-view'];
+        const views = ['home-view', 'student-login-view', 'staff-login-view', 'admin-login-view', 'dashboard-view'];
         views.forEach(v => {
             const el = document.getElementById(v);
             if (el) el.classList.add('hidden');
@@ -270,6 +274,7 @@ export class App {
             url.searchParams.set('view', viewKey);
             window.history.pushState({}, '', url);
             if (viewKey === 'student') this.studentLinkMode = true;
+            else if (viewKey === 'staff') this.studentLinkMode = false;
             else if (viewKey === 'admin') this.studentLinkMode = false;
         }
     }
@@ -319,6 +324,30 @@ export class App {
         if (pass === 'atkboss') {
             this.showToast("Security Alert: Please reset your default password!", "error");
         }
+
+        await this.enterDashboard();
+    }
+
+    async handleStaffLogin() {
+        const idInput = document.getElementById('staff-id-input');
+        const passInput = document.getElementById('staff-pass-input');
+        const val = idInput.value.trim();
+        const pass = passInput.value.trim();
+
+        if (!val) return this.showToast("Please enter your Staff ID", "error");
+        if (!pass) return this.showToast("Please enter your password", "error");
+
+        const staffData = await api.verifyStaff(val, pass);
+        if (!staffData) {
+            return this.showToast("Invalid ID or Password", "error");
+        }
+
+        this.role = 'voter';
+        this.currentUser = staffData;
+
+        localStorage.setItem('safevote-user', JSON.stringify(staffData));
+        localStorage.setItem('safevote-role', 'voter');
+        localStorage.setItem('safevote-staff-token', staffData.token);
 
         await this.enterDashboard();
     }
@@ -375,7 +404,7 @@ export class App {
 
         // Use preserved tab if valid for role, else default
         let targetTab = this.activeTab;
-        const adminTabs = ['admin', 'students', 'results', 'blockchain', 'guide', 'vote'];
+        const adminTabs = ['admin', 'students', 'staff', 'results', 'blockchain', 'guide', 'vote'];
         const voterTabs = ['vote', 'blockchain', 'guide'];
 
         if (this.role === 'admin') {
@@ -392,8 +421,8 @@ export class App {
         document.getElementById('auth-section').classList.remove('hidden');
         document.getElementById('home-nav').classList.add('hidden');
         document.getElementById('nav-username').textContent = this.currentUser.name;
-        const details = this.role === 'admin' ? "Admin Access" : `ID: ${this.currentUser.regNo}`;
-        const studentInfo = this.role === 'admin' ? null : this.parseStudentId(this.currentUser.regNo);
+        const details = this.role === 'admin' ? "Admin Access" : `ID: ${this.currentUser.regNo || this.currentUser.staffId}`;
+        const studentInfo = this.role === 'admin' ? null : (this.currentUser.regNo ? this.parseStudentId(this.currentUser.regNo) : "Staff Profile");
         document.getElementById('nav-role').textContent = studentInfo ? `${details} (${studentInfo})` : details;
     }
 
@@ -408,6 +437,7 @@ export class App {
         localStorage.removeItem('safevote-role');
         localStorage.removeItem('safevote-admin-key');
         localStorage.removeItem('safevote-student-token');
+        localStorage.removeItem('safevote-staff-token');
         localStorage.removeItem('safevote-active-tab');
         localStorage.removeItem('safevote-last-active');
         document.documentElement.removeAttribute('data-role');
@@ -445,8 +475,11 @@ export class App {
         if (tabId === 'students' && this.role === 'admin') {
             await api.fetchStudents();
         }
+        if (tabId === 'staff' && this.role === 'admin') {
+            await api.fetchStaff();
+        }
 
-        const tabs = ['vote', 'admin', 'students', 'results', 'blockchain', 'guide'];
+        const tabs = ['vote', 'admin', 'students', 'staff', 'results', 'blockchain', 'guide'];
         tabs.forEach(t => {
             const el = document.getElementById(`tab-${t}`);
             if (el) {
@@ -517,10 +550,12 @@ export class App {
 
         const adminTab = document.getElementById('tab-admin');
         const studentsTab = document.getElementById('tab-students');
+        const staffTab = document.getElementById('tab-staff');
         const resultsTab = document.getElementById('tab-results');
 
         if (adminTab) adminTab.classList.toggle('hidden', this.role !== 'admin');
         if (studentsTab) studentsTab.classList.toggle('hidden', this.role !== 'admin');
+        if (staffTab) staffTab.classList.toggle('hidden', this.role !== 'admin');
         if (resultsTab) resultsTab.classList.toggle('hidden', this.role !== 'admin' && api.electionStatus !== 'ENDED');
 
         // Capture focus state for search bar preservation
@@ -533,6 +568,7 @@ export class App {
         if (this.activeTab === 'vote') this.renderVoteTab(container);
         else if (this.activeTab === 'admin') this.renderAdminTab(container);
         else if (this.activeTab === 'students') this.renderStudentsTab(container);
+        else if (this.activeTab === 'staff') this.renderStaffTab(container);
         else if (this.activeTab === 'results') this.renderResultsTab(container);
         else if (this.activeTab === 'blockchain') this.renderBlockchainTab(container);
         else if (this.activeTab === 'guide') this.renderGuideTab(container);
@@ -1908,6 +1944,151 @@ export class App {
         // Initial call
         await updateIntegrityUI();
         this.integrityInterval = setInterval(updateIntegrityUI, 3000);
+    }
+
+    renderStaffTab(container) {
+        const query = this.searchQuery.toLowerCase();
+        const staffByDept = {};
+
+        api.localStaff.forEach(s => {
+            if (query && !s.name.toLowerCase().includes(query) && !s.staffId.toLowerCase().includes(query)) return;
+            const dept = s.department || 'GENERAL';
+            if (!staffByDept[dept]) staffByDept[dept] = [];
+            staffByDept[dept].push(s);
+        });
+
+        let html = `
+            <div style="display:flex; flex-direction: column; align-items: center; margin-bottom: 3rem;">
+                <div class="search-premium-container" style="max-width: 600px; margin-bottom: 1.5rem;">
+                    <i data-lucide="search" class="search-mini-icon"></i>
+                    <input type="text" id="admin-staff-search" oninput="window.app.onSearchInput(this.value, 'admin-staff-search')" placeholder="Search staff by name or ID..." class="search-premium-input" value="${this.searchQuery}">
+                </div>
+                <div style="display:flex; gap:1rem; align-items:center;">
+                    <div style="background:var(--primary-light); color:var(--primary); padding: 0.5rem 1.25rem; border-radius: 99px; font-weight: 800; font-size:0.85rem; border: 1px solid var(--primary-light);">
+                        ${api.localStaff.length} Staff members total
+                    </div>
+                    <button onclick="window.app.showAddStaffModal()" class="btn-primary-custom" style="padding:0.5rem 1.25rem; font-size:0.85rem; background:var(--accent);">
+                        <i data-lucide="plus" size="16" style="vertical-align:middle; margin-right:0.4rem"></i> Add Staff
+                    </button>
+                </div>
+            </div>
+
+            <div class="departments-container">
+        `;
+
+        Object.keys(staffByDept).sort().forEach(dept => {
+            const staffList = staffByDept[dept].sort((a, b) => a.name.localeCompare(b.name));
+            const folderKey = `staff-${dept}`;
+            const isExpanded = this.expandedDepts[folderKey] !== false; // Default expanded
+
+            html += `
+                <div class="card-custom mb-4" style="padding: 0; overflow: hidden; border: 2px solid var(--primary-light);">
+                    <div onclick="window.app.toggleDept('${folderKey}')" style="padding: 1.25rem; background: var(--primary-light); display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                        <div style="display:flex; align-items:center; gap:0.75rem;">
+                            <i data-lucide="briefcase" style="color:var(--primary)"></i>
+                            <h3 style="margin:0; color:var(--primary)">${dept}</h3>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:1rem;">
+                            <span style="background:white; color:var(--primary); padding: 0.2rem 0.6rem; border-radius: 99px; font-weight: 800; font-size: 0.75rem;">
+                                ${staffList.length} Members
+                            </span>
+                            <i data-lucide="${isExpanded ? 'chevron-up' : 'chevron-down'}" style="color:var(--primary); width:18px;"></i>
+                        </div>
+                    </div>
+                    
+                    ${isExpanded ? `
+                    <div class="fade-in">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Staff Name</th>
+                                    <th>Staff ID</th>
+                                    <th style="text-align:center">Status</th>
+                                    <th style="text-align:right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${staffList.map(s => `
+                                    <tr class="searchable-staff-row" data-search="${s.name} ${s.staffId}">
+                                        <td style="font-weight:700">${s.name}</td>
+                                        <td><code>${s.staffId}</code></td>
+                                        <td style="text-align:center">
+                                            ${s.hasVoted ? '<span class="status-badge status-ongoing">VOTED</span>' : '<span class="status-badge status-wait">PENDING</span>'}
+                                        </td>
+                                        <td style="text-align:right">
+                                            <button onclick="window.app.handleDeleteStaff('${s.id}')" class="btn-primary-custom" style="padding:0.4rem; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); color:#ef4444; box-shadow:none;"><i data-lucide="trash-2" size="14"></i></button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+
+        html += `</div>`;
+        container.innerHTML = html;
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    showAddStaffModal() {
+        const modal = document.getElementById('modal-overlay');
+        const title = document.getElementById('modal-title');
+        const body = document.getElementById('modal-body');
+        const okBtn = document.getElementById('modal-ok');
+        const cancelBtn = document.getElementById('modal-cancel');
+
+        title.textContent = "Register New Staff Member";
+        body.innerHTML = `
+            <div style="display:grid; gap:1rem; margin-top:1rem;">
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" id="new-staff-name" class="form-input" placeholder="Enter name">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Staff ID</label>
+                    <input type="text" id="new-staff-id" class="form-input" placeholder="Enter staff ID">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="text" id="new-staff-pass" class="form-input" value="atkboss">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Department</label>
+                    <input type="text" id="new-staff-dept" class="form-input" value="STAFF">
+                </div>
+            </div>
+        `;
+
+        modal.classList.remove('hidden');
+        okBtn.onclick = async () => {
+            const name = document.getElementById('new-staff-name').value.trim();
+            const staffId = document.getElementById('new-staff-id').value.trim();
+            const pass = document.getElementById('new-staff-pass').value.trim();
+            const dept = document.getElementById('new-staff-dept').value.trim();
+
+            if (!name || !staffId) return this.showToast("All fields are required", "error");
+
+            const res = await api.addStaff(staffId, name, pass, dept);
+            if (res.success) {
+                this.showToast("Staff member added successfully");
+                modal.classList.add('hidden');
+                this.renderContent();
+            } else {
+                this.showToast(res.message || "Error adding staff", "error");
+            }
+        };
+        cancelBtn.onclick = () => modal.classList.add('hidden');
+    }
+
+    async handleDeleteStaff(id) {
+        if (confirm("Delete this staff member? This action is permanent.")) {
+            await api.deleteStaff(id);
+            this.showToast("Staff member removed");
+            this.renderContent();
+        }
     }
 
     showToast(m, t = 'success') {
