@@ -887,22 +887,22 @@ export class App {
                 </div>
             </div>
 
-            <div class="card-custom mt-5" style="padding: 2rem; border: 1px dashed var(--primary); background: rgba(37, 99, 235, 0.02);">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem">
+            <div class="card-custom mt-5" style="padding: 2.25rem; border: 1px dashed var(--primary); background: rgba(37, 99, 235, 0.02); position: relative; overflow: visible;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap: wrap; gap: 1rem;">
                     <h3 style="margin:0"><i data-lucide="calendar-days" style="vertical-align:middle; margin-right:0.5rem"></i> Election Scheduler (Future Setup)</h3>
-                    <div style="background:var(--primary); color:white; padding:0.25rem 0.75rem; border-radius:99px; font-size: 0.7rem; font-weight:800;">BETA</div>
+                    <div style="background:var(--primary); color:white; padding:0.25rem 0.75rem; border-radius:99px; font-size: 0.7rem; font-weight:800; white-space: nowrap;">BETA</div>
                 </div>
                 
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1.5rem; margin-bottom: 1.5rem;">
-                    <div class="form-group" style="grid-column: span 2;">
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:1.5rem; margin-bottom: 1.5rem;">
+                    <div class="form-group" style="grid-column: 1 / -1;">
                         <label class="form-label">Future Election Name</label>
                         <input type="text" id="sched-name" class="form-input" value="${api.electionName}" placeholder="e.g. 2026 Student Council Elections">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="margin-bottom: 0;">
                         <label class="form-label">Start Date & Time</label>
                         <input type="text" id="sched-start" class="form-input" placeholder="Select Start Time..." value="${api.startTime ? new Date(api.startTime).toISOString().slice(0, 16) : ''}">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="margin-bottom: 0;">
                         <label class="form-label">End Date & Time</label>
                         <input type="text" id="sched-end" class="form-input" placeholder="Select End Time..." value="${api.endTime ? new Date(api.endTime).toISOString().slice(0, 16) : ''}">
                     </div>
@@ -910,18 +910,18 @@ export class App {
                 
                 <div class="form-group" style="margin-bottom: 1.5rem;">
                     <label class="form-label">Restrict to Departments</label>
-                    <div style="display:flex; flex-wrap:wrap; gap:1.5rem; margin-top:0.5rem">
+                    <div style="display:flex; flex-wrap:wrap; gap:1.25rem; margin-top:0.75rem; background: var(--card-bg); padding: 1rem; border-radius: 1rem; border: 1px solid var(--card-border);">
                         ${[...new Set(["CYBER SECURITY", "AIML", "OTHERS", ...api.localStudents.map(s => s.department || "OTHERS")])].sort().map(dept => `
-                            <label style="display:flex; align-items:center; gap:0.6rem; font-size:0.9rem; cursor:pointer; font-weight:600;">
-                                <input type="checkbox" name="sched-dept" value="${dept}" ${(api.allowedDepartments || []).includes(dept) ? 'checked' : ''} style="width:18px; height:18px;"> ${dept}
+                            <label style="display:flex; align-items:center; gap:0.6rem; font-size:0.9rem; cursor:pointer; font-weight:600; color: var(--text-main);">
+                                <input type="checkbox" name="sched-dept" value="${dept}" ${(api.allowedDepartments || []).includes(dept) ? 'checked' : ''} style="width:18px; height:18px; cursor: pointer;"> ${dept}
                             </label>
                         `).join('')}
                     </div>
                 </div>
                 
-                <div style="margin-top:1.5rem; display:flex; gap:1rem; align-items:center;">
-                    <button onclick="window.app.handleScheduleElection()" class="btn-primary-custom" style="padding:0.75rem 2rem; background:var(--primary);">APPLY SCHEDULE</button>
-                    ${api.startTime ? `<div style="font-size:0.7rem; color:var(--text-muted);">Current Active Schedule: <b>${new Date(api.startTime).toLocaleString()}</b> to <b>${new Date(api.endTime).toLocaleString()}</b></div>` : ''}
+                <div style="margin-top:2rem; display:flex; gap:1.5rem; align-items:center; flex-wrap: wrap;">
+                    <button onclick="window.app.handleScheduleElection()" class="btn-primary-custom" style="padding:1rem 2.5rem; background:var(--primary); font-size: 0.9rem;">APPLY SCHEDULE</button>
+                    ${api.startTime ? `<div style="font-size:0.75rem; color:var(--text-muted); background: var(--primary-light); padding: 0.5rem 1rem; border-radius: 0.75rem; border: 1px solid var(--primary-light);">Current Active Schedule: <b style="color: var(--primary);">${new Date(api.startTime).toLocaleString()}</b> to <b style="color: var(--primary);">${new Date(api.endTime).toLocaleString()}</b></div>` : ''}
                 </div>
             </div>
 
