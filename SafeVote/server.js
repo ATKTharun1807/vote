@@ -396,6 +396,8 @@ app.get('/api/v1/session', async (req, res) => {
         if (adminRole !== 'NONE' || electionEnded) {
             responseData.totalStudents = await Student.countDocuments({});
             responseData.votedCount = await Student.countDocuments({ hasVoted: true });
+            responseData.totalStaff = await Staff.countDocuments({});
+            responseData.staffVotedCount = await Staff.countDocuments({ hasVoted: true });
 
             const candidates = await Candidate.find({}).sort({ addedAt: 1 }).lean();
             responseData.candidates = candidates.map((c, idx) => ({

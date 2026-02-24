@@ -32,6 +32,7 @@ export class VotingAPI {
         this.totalRegisteredStudents = 0;
         this.totalRegisteredStaff = 0;
         this.totalVotersCount = 0;
+        this.staffVotedCount = 0;
         this.voterIds = [];
         this.isLive = false;
         this.authenticated = false; // Admin auth state
@@ -155,12 +156,18 @@ export class VotingAPI {
                 this.totalVotersCount = data.votedCount;
             }
 
+            this.voterIds = [];
             if (this.localStudents && this.localStudents.length > 0) {
-                this.voterIds = this.localStudents.filter(s => s.hasVoted).map(s => s.regNo.toString());
+                this.voterIds = this.voterIds.concat(this.localStudents.filter(s => s.hasVoted).map(s => s.regNo.toString()));
                 if (data.votedCount === undefined) this.totalVotersCount = this.voterIds.length;
+            }
+            if (this.localStaff && this.localStaff.length > 0) {
+                this.voterIds = this.voterIds.concat(this.localStaff.filter(s => s.hasVoted).map(s => s.staffId.toString()));
             }
 
             this.totalRegisteredStudents = data.totalStudents || 0;
+            this.totalRegisteredStaff = data.totalStaff || 0;
+            this.staffVotedCount = data.staffVotedCount || 0;
             this.isLive = true;
 
             if (window.app) window.app.refreshUI();

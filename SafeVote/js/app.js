@@ -611,7 +611,8 @@ export class App {
     }
 
     renderVoteTab(container) {
-        const hasVoted = this.currentUser && (this.currentUser.hasVoted || api.voterIds.includes(this.currentUser.regNo.toString()));
+        const currentId = this.currentUser ? (this.currentUser.regNo || this.currentUser.staffId) : null;
+        const hasVoted = this.currentUser && (this.currentUser.hasVoted || (currentId && api.voterIds.includes(currentId.toString())));
         let html = `
             ${this.role !== 'admin' ? `
                 <div style="text-align:center; margin-bottom:2rem;">
@@ -792,6 +793,10 @@ export class App {
         const totalStudents = api.totalRegisteredStudents;
         const turnoutPercent = totalStudents ? ((turnoutCount / totalStudents) * 100).toFixed(1) : 0;
 
+        const staffVotedCount = api.staffVotedCount;
+        const totalStaff = api.totalRegisteredStaff;
+        const staffTurnoutPercent = totalStaff ? ((staffVotedCount / totalStaff) * 100).toFixed(1) : 0;
+
         let html = `
             <div class="feature-grid">
                 <div class="feature-box">
@@ -841,6 +846,16 @@ export class App {
                     <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center;">
                         <div style="font-size:2.5rem; font-weight:900; color:#0ea5e9;">${turnoutPercent}%</div>
                         <p style="font-size:0.8rem; color:#0284c7; margin:0.25rem 0 0;">${turnoutCount} / ${totalStudents} Students Voted</p>
+                    </div>
+                </div>
+                <div class="feature-box" style="border-color: #fef3c7; background: #fffbeb;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div class="feature-title" style="color: #92400e;">Staff Turnout</div>
+                        <i data-lucide="award" size="18" style="color:#92400e"></i>
+                    </div>
+                    <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center;">
+                        <div style="font-size:2.5rem; font-weight:900; color:#f59e0b;">${staffTurnoutPercent}%</div>
+                        <p style="font-size:0.8rem; color:#b45309; margin:0.25rem 0 0;">${staffVotedCount} / ${totalStaff} Staff Voted</p>
                     </div>
                 </div>
                 <div class="feature-box" style="border-color: #dcfce7; background: #f0fdf4;">
@@ -1705,7 +1720,8 @@ export class App {
     }
 
     async castVote(cid, btn) {
-        if (api.voterIds.includes(this.currentUser.regNo.toString())) {
+        const currentId = this.currentUser ? (this.currentUser.regNo || this.currentUser.staffId) : null;
+        if (currentId && api.voterIds.includes(currentId.toString())) {
             return this.showToast("You have already voted!", "error");
         }
 
@@ -1797,7 +1813,12 @@ export class App {
 
         doc.setFontSize(11);
         doc.text(`Status: ${api.electionStatus}`, 20, 62);
-        doc.text(`Turnout: ${turnoutPercent}% (${turnoutCount} / ${totalStudents} students voted)`, 20, 69);
+        doc.text(`Student Turnout: ${turnoutPercent}% (${turnoutCount} / ${totalStudents} students voted)`, 20, 69);
+
+        const staffVotedCount = api.staffVotedCount;
+        const totalStaff = api.totalRegisteredStaff;
+        const staffTurnoutPercent = totalStaff ? ((staffVotedCount / totalStaff) * 100).toFixed(1) : 0;
+        doc.text(`Staff Turnout: ${staffTurnoutPercent}% (${staffVotedCount} / ${totalStaff} staff voted)`, 20, 76);
 
         if (api.electionStatus === 'ENDED') {
             const winner = this.getWinner();
@@ -1815,7 +1836,7 @@ export class App {
 
         const tableData = [...api.localCandidates].sort((a, b) => b.votes - a.votes).map(c => [c.name, c.party, c.votes]);
         doc.autoTable({
-            startY: api.electionStatus === 'ENDED' ? 112 : 82,
+            startY: api.electionStatus === 'ENDED' ? 120 : 90,
             head: [['Candidate Name', 'Party / Group', 'Votes Received']],
             body: tableData,
             headStyles: { fillColor: [37, 99, 235], fontSize: 11 },
