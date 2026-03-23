@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const MONGO_URI = "mongodb+srv://stharunkumar069_db_user:siet%40123@cluster0.frcnaxx.mongodb.net/safevote?retryWrites=true&w=majority&appName=Cluster0";
+const MONGO_URI = "mongodb+srv://stharunkumar069_db_user:[EMAIL_ADDRESS]/?appName=Cluster0";
 
 const StudentSchema = new mongoose.Schema({
     regNo: { type: Number, required: true, unique: true },
@@ -26,11 +26,15 @@ async function migrate() {
             const sId = student.regNo.toString();
             const deptCode = sId.substring(6, 9);
 
-            let dept = "CYBER SECURITY";
+            let dept = "OTHERS";
             if (deptCode === "107") {
                 dept = "CYBER SECURITY";
             } else if (deptCode === "202") {
                 dept = "AIML";
+            } else if (deptCode === "205") {
+                dept = "IOT";
+            } else if (deptCode === "104") {
+                dept = "CSE";
             }
 
             if (student.department !== dept) {
