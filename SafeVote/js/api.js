@@ -486,6 +486,22 @@ export class VotingAPI {
         return true;
     }
 
+    async updateCandidate(id, data) {
+        const res = await fetch(`${this.baseUrl}/api/candidates/${id}`, {
+            method: 'PUT',
+            headers: this.getAuthHeaders(),
+            body: JSON.stringify(data)
+        });
+
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to update candidate");
+        }
+
+        await this.syncData();
+        return true;
+    }
+
     async deleteCandidate(id) {
         await fetch(`${this.baseUrl}/api/candidates/${id}`, {
             method: 'DELETE',

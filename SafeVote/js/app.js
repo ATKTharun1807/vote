@@ -1003,7 +1003,10 @@ export class App {
                                     <span style="background:var(--primary-light); color:var(--primary); padding:0.25rem 0.75rem; border-radius:12px; font-weight:900">${c.votes}</span>
                                 </td>
                                 <td style="text-align:right">
-                                    <button onclick="window.app.handleDeleteCandidate('${c.id}', '${c.name.replace(/'/g, "\\'")}')" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer">REMOVE</button>
+                                    <div style="display:flex; justify-content:flex-end; gap:1.25rem;">
+                                        <button onclick="window.app.startEditCandidate('${c.id}')" style="background:none; border:none; color:var(--primary); font-weight:700; cursor:pointer; text-transform:uppercase; font-size:0.75rem;">EDIT</button>
+                                        <button onclick="window.app.handleDeleteCandidate('${c.id}', '${c.name.replace(/'/g, "\\'")}')" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer; text-transform:uppercase; font-size:0.75rem;">REMOVE</button>
+                                    </div>
                                 </td>
                             </tr>
                         `).join('')}
@@ -1011,10 +1014,13 @@ export class App {
                 </table>
             </div>
 
-            <div class="add-candidate-section">
-                <div style="margin-bottom: 1.5rem;">
-                    <h3 style="margin:0">Add New Candidate</h3>
-                    <p style="margin:0; font-size:0.85rem; color:var(--text-muted)">Add participants to the election ballot.</p>
+            <div class="add-candidate-section" id="candidate-form-container">
+                <div style="margin-bottom: 1.5rem; display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div>
+                        <h3 style="margin:0">${this.editingCandidateId ? 'Update Candidate' : 'Add New Candidate'}</h3>
+                        <p style="margin:0; font-size:0.85rem; color:var(--text-muted)">${this.editingCandidateId ? 'Modify candidate details.' : 'Add participants to the election ballot.'}</p>
+                    </div>
+                    ${this.editingCandidateId ? `<button onclick="window.app.cancelEdit()" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer; font-size:0.75rem;">CANCEL EDIT</button>` : ''}
                 </div>
                 <div class="grid-form" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
                     <div class="form-group" style="margin:0">
@@ -1039,7 +1045,9 @@ export class App {
                             <i data-lucide="target" style="position:absolute; right:1rem; top:50%; transform:translateY(-50%); color:var(--text-muted); width:16px;"></i>
                         </div>
                     </div>
-                    <button id="save-btn" onclick="window.app.handleAdd()" class="btn-primary-custom" style="padding: 1rem 2rem; width:100%; grid-column: 1 / -1; margin-top: 1rem;">ADD TO LIST</button>
+                    <button id="save-btn" onclick="window.app.handleAdd()" class="btn-primary-custom" style="padding: 1rem 2rem; width:100%; grid-column: 1 / -1; margin-top: 1rem;">
+                        ${this.editingCandidateId ? 'UPDATE CANDIDATE' : 'ADD TO LIST'}
+                    </button>
                 </div>
             </div>
             
@@ -1819,7 +1827,33 @@ export class App {
                 const toBase64 = file => new Promise((resolve, reject) => {
                     const reader = new FileReader();
                     reader.readAsDataURL(file);
-                    reader.onload = () => resolve(reader.result);
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.src = e.target.result;
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            let width = img.width;
+                            let height = img.height;
+                            const max_size = 800; // Max dimension for profiles
+
+                            if (width > height) {
+                                if (width > max_size) {
+                                    height *= max_size / width;
+                                    width = max_size;
+                                }
+                            } else {
+                                if (height > max_size) {
+                                    width *= max_size / height;
+                                    height = max_size;
+                                }
+                            }
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+                            resolve(canvas.toDataURL('image/jpeg', 0.8)); // Compressed
+                        };
+                    };
                     reader.onerror = error => reject(error);
                 });
 
@@ -1827,10 +1861,16 @@ export class App {
                 if (photoFile) data.photo = await toBase64(photoFile);
                 if (symbolFile) data.symbol = await toBase64(symbolFile);
 
-                api.addCandidate(data).then(async () => {
-                    this.showToast("Candidate Added!");
+                const action = this.editingCandidateId 
+                    ? api.updateCandidate(this.editingCandidateId, data)
+                    : api.addCandidate(data);
+
+                action.then(async () => {
+                    this.showToast(this.editingCandidateId ? "Candidate Updated!" : "Candidate Added!");
+                    this.editingCandidateId = null; 
                     await api.fetchCandidates(); // Refresh list
                     this.renderContent();
+                    
                     const cn = document.getElementById('cn');
                     const cp = document.getElementById('cp');
                     const cphoto = document.getElementById('cphoto');
@@ -1840,7 +1880,7 @@ export class App {
                     if (cphoto) cphoto.value = '';
                     if (csymbol) csymbol.value = '';
                 }).catch(err => {
-                    this.showToast("Error saving: " + (err.message || "Unknown error"), "error");
+                    this.showToast("Error: " + (err.message || "Unknown error"), "error");
                 }).finally(() => {
                     saveBtn.textContent = originalText;
                     saveBtn.disabled = false;
@@ -1851,6 +1891,31 @@ export class App {
                 saveBtn.disabled = false;
             }
         }
+    }
+
+    startEditCandidate(id) {
+        const c = api.localCandidates.find(cand => cand.id === id);
+        if (!c) return;
+
+        this.editingCandidateId = id;
+        this.renderContent(); // Rerender to update form title/button
+
+        // Scroll to form
+        const form = document.getElementById('candidate-form-container');
+        if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Populate fields
+        setTimeout(() => {
+            const cn = document.getElementById('cn');
+            const cp = document.getElementById('cp');
+            if (cn) cn.value = c.name;
+            if (cp) cp.value = c.party;
+        }, 50);
+    }
+
+    cancelEdit() {
+        this.editingCandidateId = null;
+        this.renderContent();
     }
 
     handleReset() {

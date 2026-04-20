@@ -48,17 +48,7 @@ body {
     min-height: 100vh;
 }
 
-#bg-animation-canvas {
-    pointer-events: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: -1;
-    opacity: 1;
-    /* Increased from 0.6 */
-}
+/* Background Animation Removed */
 
 h1,
 h2,
@@ -805,9 +795,7 @@ p {
     }
 }
 
-.spin {
-    animation: spin 1s linear infinite;
-}
+/* Spin animation removed */
 
 /* Ensuring table responsiveness */
 .admin-table-container {
@@ -1073,23 +1061,4 @@ p {
     background: var(--text-muted);
 }
 
-@keyframes pulse-dot {
-    0% {
-        transform: scale(1);
-        opacity: 1;
-    }
-
-    50% {
-        transform: scale(1.5);
-        opacity: 0.7;
-    }
-
-    100% {
-        transform: scale(1);
-        opacity: 1;
-    }
-}
-
-.pulse-dot {
-    animation: pulse-dot 2s infinite ease-in-out;
-}
+/* Pulse dot and its keyframes removed */

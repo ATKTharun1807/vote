@@ -291,7 +291,16 @@ const corsOptions = {
     optionsSuccessStatus: 204
 };
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
+
+// Custom error handler for JSON parsing and large payloads
+app.use((err, req, res, next) => {
+    if (err.type === 'entity.too.large') {
+        return res.status(413).json({ error: "Image size is too large. Please upload smaller images (under 50MB combined)." });
+    }
+    next(err);
+});
 
 // Disable x-powered-by specifically via express setting
 app.disable('x-powered-by');
@@ -404,7 +413,7 @@ app.get('/api/v1/session', async (req, res) => {
 
             const candidates = await Candidate.find({}).sort({ addedAt: 1 }).lean();
             responseData.candidates = candidates.map((c, idx) => ({
-                id: (isAdmin || electionEnded) ? c._id : `cnd_${idx + 1}`,
+                id: (adminRole !== 'NONE' || electionEnded) ? c._id : `cnd_${idx + 1}`,
                 name: c.name,
                 party: c.party,
                 photo: c.photo || null,
@@ -470,14 +479,15 @@ app.get('/api/candidates/list', async (req, res) => {
         const electionEnded = config && config.electionStatus === 'ENDED';
 
         const safeCandidates = candidates.map((c, idx) => {
+            const hasPrivilegedAccess = adminRole !== 'NONE' || electionEnded;
             const obj = {
-                id: (isAdmin || electionEnded) ? c._id : `cnd_${idx + 1}`,
+                id: hasPrivilegedAccess ? c._id : `cnd_${idx + 1}`,
                 name: c.name,
                 party: c.party,
                 photo: c.photo || null,
                 partySymbol: c.partySymbol || null
             };
-            if (isAdmin || electionEnded) obj.votes = c.votes;
+            if (hasPrivilegedAccess) obj.votes = c.votes;
             return obj;
         });
 
@@ -780,6 +790,29 @@ app.post('/api/candidates/add', authAdmin, async (req, res) => {
 
         await Candidate.create({ name, party, photo, partySymbol: symbol, votes: 0 });
         res.sendStatus(200);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Update Candidate
+app.put('/api/candidates/:id', authAdmin, async (req, res) => {
+    const { name, party, photo, symbol } = req.body;
+    try {
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (party) updateData.party = party;
+        if (photo) updateData.photo = photo;
+        if (symbol) updateData.partySymbol = symbol;
+
+        const updated = await Candidate.findByIdAndUpdate(
+            req.params.id,
+            { $set: updateData },
+            { new: true }
+        );
+
+        if (!updated) return res.status(404).json({ error: "Candidate not found" });
+        res.json(updated);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
