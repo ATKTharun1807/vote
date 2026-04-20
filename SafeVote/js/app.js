@@ -1033,16 +1033,34 @@ export class App {
                     </div>
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Candidate Photo</label>
-                        <div style="position:relative;">
-                            <input type="file" id="cphoto" class="form-input" accept="image/*" style="padding-top: 0.6rem; font-size: 0.8rem;">
-                            <i data-lucide="image" style="position:absolute; right:1rem; top:50%; transform:translateY(-50%); color:var(--text-muted); width:16px;"></i>
+                        <div class="premium-upload-box" id="up-box-cphoto">
+                            <input type="file" id="cphoto" accept="image/*" onchange="window.app.handleImagePreview('cphoto')">
+                            <div class="upload-placeholder" id="placeholder-cphoto">
+                                <i data-lucide="camera" size="24"></i>
+                                <span>Click or Drag Photo</span>
+                            </div>
+                            <div class="upload-preview-container" id="preview-container-cphoto">
+                                <img src="" class="upload-preview-img" id="preview-img-cphoto">
+                                <div class="upload-actions" onclick="event.stopPropagation(); window.app.clearImagePreview('cphoto')">
+                                    <i data-lucide="x" size="16"></i>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Party Symbol</label>
-                        <div style="position:relative;">
-                            <input type="file" id="csymbol" class="form-input" accept="image/*" style="padding-top: 0.6rem; font-size: 0.8rem;">
-                            <i data-lucide="target" style="position:absolute; right:1rem; top:50%; transform:translateY(-50%); color:var(--text-muted); width:16px;"></i>
+                        <div class="premium-upload-box" id="up-box-csymbol">
+                            <input type="file" id="csymbol" accept="image/*" onchange="window.app.handleImagePreview('csymbol')">
+                            <div class="upload-placeholder" id="placeholder-csymbol">
+                                <i data-lucide="target" size="24"></i>
+                                <span>Click or Drag Symbol</span>
+                            </div>
+                            <div class="upload-preview-container" id="preview-container-csymbol">
+                                <img src="" class="upload-preview-img" id="preview-img-csymbol">
+                                <div class="upload-actions" onclick="event.stopPropagation(); window.app.clearImagePreview('csymbol')">
+                                    <i data-lucide="x" size="16"></i>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <button id="save-btn" onclick="window.app.handleAdd()" class="btn-primary-custom" style="padding: 1rem 2rem; width:100%; grid-column: 1 / -1; margin-top: 1rem;">
@@ -1916,6 +1934,35 @@ export class App {
     cancelEdit() {
         this.editingCandidateId = null;
         this.renderContent();
+    }
+
+    handleImagePreview(id) {
+        const input = document.getElementById(id);
+        const placeholder = document.getElementById(`placeholder-${id}`);
+        const container = document.getElementById(`preview-container-${id}`);
+        const img = document.getElementById(`preview-img-${id}`);
+
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                img.src = e.target.result;
+                placeholder.style.display = 'none';
+                container.classList.add('active');
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    clearImagePreview(id) {
+        const input = document.getElementById(id);
+        const placeholder = document.getElementById(`placeholder-${id}`);
+        const container = document.getElementById(`preview-container-${id}`);
+        const img = document.getElementById(`preview-img-${id}`);
+
+        input.value = "";
+        img.src = "";
+        placeholder.style.display = 'block';
+        container.classList.remove('active');
     }
 
     handleReset() {
