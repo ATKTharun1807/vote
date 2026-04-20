@@ -479,7 +479,7 @@ app.get('/api/candidates/list', async (req, res) => {
         const electionEnded = config && config.electionStatus === 'ENDED';
 
         const safeCandidates = candidates.map((c, idx) => {
-            const hasPrivilegedAccess = adminRole !== 'NONE' || electionEnded;
+            const hasPrivilegedAccess = isAdmin || electionEnded;
             const obj = {
                 id: hasPrivilegedAccess ? c._id : `cnd_${idx + 1}`,
                 name: c.name,
