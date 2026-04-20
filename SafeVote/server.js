@@ -979,6 +979,10 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.listen(port, '0.0.0.0', () => {
-    console.log(`\n🚀 SafeVote Server running at http://localhost:${port}/`);
-});
+if (require.main === module) {
+    app.listen(port, '0.0.0.0', () => {
+        console.log(`\n🚀 SafeVote Server running at http://localhost:${port}/`);
+    });
+}
+
+module.exports = app;
