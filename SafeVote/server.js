@@ -118,6 +118,8 @@ const StudentSchema = new mongoose.Schema({
 const CandidateSchema = new mongoose.Schema({
     name: String,
     party: String,
+    photo: String,
+    partySymbol: String,
     votes: { type: Number, default: 0 },
     addedAt: { type: Date, default: Date.now }
 });
@@ -303,6 +305,7 @@ app.use('/api/vote', voteLimiter);
 // Security: Only serve specific directories/files to prevent leaking server.js
 app.use('/css', express.static(path.join(__dirname, 'css')));
 app.use('/js', express.static(path.join(__dirname, 'js')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/voting.jpg', (req, res) => res.sendFile(path.join(__dirname, 'voting.jpg')));
 
@@ -404,6 +407,8 @@ app.get('/api/v1/session', async (req, res) => {
                 id: (isAdmin || electionEnded) ? c._id : `cnd_${idx + 1}`,
                 name: c.name,
                 party: c.party,
+                photo: c.photo || null,
+                partySymbol: c.partySymbol || null,
                 votes: c.votes
             }));
 
@@ -468,7 +473,9 @@ app.get('/api/candidates/list', async (req, res) => {
             const obj = {
                 id: (isAdmin || electionEnded) ? c._id : `cnd_${idx + 1}`,
                 name: c.name,
-                party: c.party
+                party: c.party,
+                photo: c.photo || null,
+                partySymbol: c.partySymbol || null
             };
             if (isAdmin || electionEnded) obj.votes = c.votes;
             return obj;
@@ -760,7 +767,7 @@ app.post('/api/config/update', authAdmin, async (req, res) => {
 
 // Add Candidate
 app.post('/api/candidates/add', authAdmin, async (req, res) => {
-    const { name, party } = req.body;
+    const { name, party, photo, symbol } = req.body;
     try {
         const exists = await Candidate.findOne({
             name: { $regex: new RegExp(`^${name}$`, "i") },
@@ -771,7 +778,7 @@ app.post('/api/candidates/add', authAdmin, async (req, res) => {
             return res.status(400).json({ error: "Candidate with this name and party already exists" });
         }
 
-        await Candidate.create({ name, party, votes: 0 });
+        await Candidate.create({ name, party, photo, partySymbol: symbol, votes: 0 });
         res.sendStatus(200);
     } catch (e) {
         res.status(500).json({ error: e.message });

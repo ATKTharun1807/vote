@@ -470,11 +470,11 @@ export class VotingAPI {
         await this.syncData();
     }
 
-    async addCandidate(name, party) {
+    async addCandidate(data) {
         const res = await fetch(`${this.baseUrl}/api/candidates/add`, {
             method: 'POST',
             headers: this.getAuthHeaders(),
-            body: JSON.stringify({ name, party })
+            body: JSON.stringify(data)
         });
 
         if (!res.ok) {

@@ -764,7 +764,23 @@ export class App {
             const searchStr = `${c.name} ${c.party || 'Independent'}`;
 
             html += `
-                <div class="card-custom searchable-candidate" data-search="${searchStr}" style="padding: 2.5rem 1.5rem; text-align:center; display: flex; flex-direction: column; align-items: center;">
+                <div class="card-custom searchable-candidate" data-search="${searchStr}" style="padding: 2rem 1.5rem; text-align:center; display: flex; flex-direction: column; align-items: center; position: relative; overflow: hidden;">
+                    <!-- Party Symbol Badge -->
+                    ${c.partySymbol ? `
+                        <div style="position: absolute; top: 1rem; right: 1rem; width: 40px; height: 40px; border-radius: 50%; background: white; border: 1px solid var(--card-border); padding: 5px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                            <img src="${c.partySymbol}" alt="Symbol" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                        </div>
+                    ` : ''}
+
+                    <!-- Candidate Photo -->
+                    <div style="width: 120px; height: 120px; border-radius: 50%; background: var(--primary-light); margin-bottom: 1.5rem; border: 4px solid var(--card-border); overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-md);">
+                        ${c.photo ? `
+                            <img src="${c.photo}" alt="${c.name}" style="width: 100%; height: 100%; object-fit: cover;">
+                        ` : `
+                            <i data-lucide="user" size="60" style="color: var(--primary); opacity: 0.5;"></i>
+                        `}
+                    </div>
+
                     <h3 style="margin:0; font-size: 1.5rem; font-weight: 800; color: var(--text-main)">${c.name}</h3>
                     <div style="margin-top:0.5rem; background: var(--primary-light); color: var(--primary); padding: 0.25rem 0.75rem; border-radius: 99px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
                         ${c.party || 'Independent'}
@@ -969,7 +985,20 @@ export class App {
                         ${api.localCandidates.length === 0 ? `<tr><td colspan="3" style="text-align:center; padding:3rem; color:var(--text-muted)">No candidates added yet. Use the form below.</td></tr>` : ''}
                         ${[...api.localCandidates].sort((a, b) => a.name.localeCompare(b.name)).map(c => `
                             <tr class="searchable-candidate-row" data-search="${c.name} ${c.party}">
-                                <td><b>${c.name}</b><br><small style="color:var(--text-muted)">${c.party}</small></td>
+                                <td>
+                                    <div style="display:flex; align-items:center; gap:0.75rem;">
+                                        <div style="width:36px; height:36px; border-radius:50%; background:var(--primary-light); overflow:hidden; display:flex; align-items:center; justify-content:center; border:1px solid var(--card-border); flex-shrink:0;">
+                                            ${c.photo ? `<img src="${c.photo}" style="width:100%; height:100%; object-fit:cover;">` : `<i data-lucide="user" size="14" style="opacity:0.5"></i>`}
+                                        </div>
+                                        <div>
+                                            <div style="display:flex; align-items:center; gap:0.4rem;">
+                                                <b>${c.name}</b>
+                                                ${c.partySymbol ? `<img src="${c.partySymbol}" title="${c.party}" style="width:16px; height:16px; object-fit:contain;">` : ''}
+                                            </div>
+                                            <small style="color:var(--text-muted)">${c.party}</small>
+                                        </div>
+                                    </div>
+                                </td>
                                 <td style="text-align:center">
                                     <span style="background:var(--primary-light); color:var(--primary); padding:0.25rem 0.75rem; border-radius:12px; font-weight:900">${c.votes}</span>
                                 </td>
@@ -987,7 +1016,7 @@ export class App {
                     <h3 style="margin:0">Add New Candidate</h3>
                     <p style="margin:0; font-size:0.85rem; color:var(--text-muted)">Add participants to the election ballot.</p>
                 </div>
-                <div class="grid-form">
+                <div class="grid-form" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Full Name</label>
                         <input id="cn" class="form-input" placeholder="e.g. John Doe" autocomplete="off" onkeyup="if(event.key==='Enter') window.app.handleAdd()">
@@ -996,7 +1025,21 @@ export class App {
                         <label class="form-label">Group / Party</label>
                         <input id="cp" class="form-input" placeholder="e.g. Independent" autocomplete="off" onkeyup="if(event.key==='Enter') window.app.handleAdd()">
                     </div>
-                    <button id="save-btn" onclick="window.app.handleAdd()" class="btn-primary-custom" style="padding: 1rem 2rem; width:100%">ADD TO LIST</button>
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Candidate Photo</label>
+                        <div style="position:relative;">
+                            <input type="file" id="cphoto" class="form-input" accept="image/*" style="padding-top: 0.6rem; font-size: 0.8rem;">
+                            <i data-lucide="image" style="position:absolute; right:1rem; top:50%; transform:translateY(-50%); color:var(--text-muted); width:16px;"></i>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Party Symbol</label>
+                        <div style="position:relative;">
+                            <input type="file" id="csymbol" class="form-input" accept="image/*" style="padding-top: 0.6rem; font-size: 0.8rem;">
+                            <i data-lucide="target" style="position:absolute; right:1rem; top:50%; transform:translateY(-50%); color:var(--text-muted); width:16px;"></i>
+                        </div>
+                    </div>
+                    <button id="save-btn" onclick="window.app.handleAdd()" class="btn-primary-custom" style="padding: 1rem 2rem; width:100%; grid-column: 1 / -1; margin-top: 1rem;">ADD TO LIST</button>
                 </div>
             </div>
             
@@ -1611,11 +1654,17 @@ export class App {
             html += `
                 <div class="card-custom" style="display:flex; justify-content:space-between; align-items:center; ${isWinner ? 'border:2px solid #10b981; background:#f0fdf4' : ''}">
                     <div style="display:flex; align-items:center; gap:1.5rem">
-                        <div style="width:40px; height:40px; border-radius:50%; background:${isWinner ? '#10b981' : 'var(--primary-light)'}; color:${isWinner ? 'white' : 'var(--primary)'}; display:flex; align-items:center; justify-content:center; font-weight:900">
+                        <div style="width:40px; height:40px; border-radius:50%; background:${isWinner ? '#10b981' : 'var(--primary-light)'}; color:${isWinner ? 'white' : 'var(--primary)'}; display:flex; align-items:center; justify-content:center; font-weight:900; flex-shrink:0;">
                             ${index + 1}
                         </div>
+                        <div style="width:50px; height:50px; border-radius:50%; background:var(--primary-light); overflow:hidden; display:flex; align-items:center; justify-content:center; border:2px solid var(--card-border); flex-shrink:0;">
+                            ${c.photo ? `<img src="${c.photo}" style="width:100%; height:100%; object-fit:cover;">` : `<i data-lucide="user" size="20" style="opacity:0.5"></i>`}
+                        </div>
                         <div>
-                            <h3 style="margin:0">${c.name} ${isWinner ? '🏆' : ''}</h3>
+                            <div style="display:flex; align-items:center; gap:0.5rem;">
+                                <h3 style="margin:0">${c.name} ${isWinner ? '🏆' : ''}</h3>
+                                ${c.partySymbol ? `<img src="${c.partySymbol}" style="width:20px; height:20px; object-fit:contain;">` : ''}
+                            </div>
                             <small style="color:var(--text-muted); font-weight:600">${c.party}</small>
                         </div>
                     </div>
@@ -1750,26 +1799,57 @@ export class App {
         }
     }
 
-    handleAdd() {
+    async handleAdd() {
         const n = document.getElementById('cn').value.trim();
         const p = document.getElementById('cp').value.trim();
+        const photoFile = document.getElementById('cphoto').files[0];
+        const symbolFile = document.getElementById('csymbol').files[0];
 
         if (!(/^[A-Za-z\s]+$/.test(n))) {
             return this.showToast("Letters only for name", "error");
         }
 
         if (n && p) {
-            api.addCandidate(n, p).then(async () => {
-                this.showToast("Candidate Added!");
-                await api.fetchCandidates(); // Refresh list
-                this.renderContent();
-                const cn = document.getElementById('cn');
-                const cp = document.getElementById('cp');
-                if (cn) cn.value = '';
-                if (cp) cp.value = '';
-            }).catch(err => {
-                this.showToast("Error saving: " + (err.message || "Unknown error"), "error");
-            });
+            const saveBtn = document.getElementById('save-btn');
+            const originalText = saveBtn.textContent;
+            saveBtn.textContent = "PROCESSING...";
+            saveBtn.disabled = true;
+
+            try {
+                const toBase64 = file => new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = error => reject(error);
+                });
+
+                const data = { name: n, party: p };
+                if (photoFile) data.photo = await toBase64(photoFile);
+                if (symbolFile) data.symbol = await toBase64(symbolFile);
+
+                api.addCandidate(data).then(async () => {
+                    this.showToast("Candidate Added!");
+                    await api.fetchCandidates(); // Refresh list
+                    this.renderContent();
+                    const cn = document.getElementById('cn');
+                    const cp = document.getElementById('cp');
+                    const cphoto = document.getElementById('cphoto');
+                    const csymbol = document.getElementById('csymbol');
+                    if (cn) cn.value = '';
+                    if (cp) cp.value = '';
+                    if (cphoto) cphoto.value = '';
+                    if (csymbol) csymbol.value = '';
+                }).catch(err => {
+                    this.showToast("Error saving: " + (err.message || "Unknown error"), "error");
+                }).finally(() => {
+                    saveBtn.textContent = originalText;
+                    saveBtn.disabled = false;
+                });
+            } catch (e) {
+                this.showToast("Image error: " + e.message, "error");
+                saveBtn.textContent = originalText;
+                saveBtn.disabled = false;
+            }
         }
     }
 
