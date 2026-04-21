@@ -79,8 +79,7 @@ function calculateBlockHash(index, timestamp, data, previousHash) {
 // MongoDB Connection
 const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) {
-    console.error("❌ FATAL ERROR: MONGO_URI not found in environment variables!");
-    process.exit(1);
+    console.error("❌ ERROR: MONGO_URI not found in environment variables! Database features will not work.");
 }
 const JWT_SALT = process.env.VOTER_SALT || "safevote_salt_2024";
 

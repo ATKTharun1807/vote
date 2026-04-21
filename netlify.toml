@@ -1,6 +1,8 @@
 [build]
+  base = "SafeVote"
   publish = "."
   functions = "netlify/functions"
+  command = "npm install"
 
 [functions]
   node_bundle = true
