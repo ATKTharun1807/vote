@@ -1,21 +1,18 @@
 const serverless = require('serverless-http');
 const app = require('../../server');
-
-// Basic logging for Netlify Functions
-console.log('API Function initializing...');
+const mongoose = require('mongoose');
 
 const handler = serverless(app);
 
 module.exports.handler = async (event, context) => {
-  console.log('Request Path:', event.path);
-  
-  // Test endpoint to verify function is alive
-  if (event.path === '/.netlify/functions/api/test') {
-      return {
-          statusCode: 200,
-          body: JSON.stringify({ message: "Function is alive!", path: event.path })
-      };
-  }
+    // Force context to wait for the event loop to be empty before freezing
+    context.callbackWaitsForEmptyEventLoop = false;
 
-  return await handler(event, context);
+    // Ensure database is connected before processing
+    if (mongoose.connection.readyState !== 1) {
+        console.log('🔄 Awaiting new database connection...');
+        await mongoose.connect(process.env.MONGO_URI);
+    }
+
+    return await handler(event, context);
 };
