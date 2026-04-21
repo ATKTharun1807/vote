@@ -5,7 +5,6 @@
   functions = "netlify/functions"
 
 [functions]
-  node_bundle = true
 
 [[redirects]]
   from = "/api/*"
