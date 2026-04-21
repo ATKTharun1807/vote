@@ -83,24 +83,38 @@ if (!MONGO_URI) {
 }
 const JWT_SALT = process.env.VOTER_SALT || "safevote_salt_2024";
 
-console.log("🚀 Starting SafeVote Server...");
-console.log("🔗 Attempting to connect to MongoDB Atlas...");
-
-mongoose.connect(MONGO_URI, {
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 45000,
-})
-    .then(() => {
+// Database Connection Helper
+let isConnected = false;
+const connectDB = async () => {
+    if (isConnected) return;
+    console.log("🔗 Connecting to MongoDB...");
+    try {
+        await mongoose.connect(process.env.MONGO_URI, {
+            serverSelectionTimeoutMS: 5000,
+            socketTimeoutMS: 45000,
+        });
+        isConnected = true;
         console.log("✅ MongoDB Connected Successfully");
-    })
-    .catch(err => {
-        console.error("❌ MongoDB Connection Error!");
-        console.error("Message:", err.message);
-        console.error("Code:", err.code);
-        if (err.message.includes("IP not whitelisted")) {
-            console.error("👉 ACTION REQUIRED: Go to MongoDB Atlas -> Network Access and add your IP address (or 0.0.0.0/0 for testing).");
+    } catch (err) {
+        console.error("❌ MongoDB Connection Error:", err.message);
+        throw err;
+    }
+};
+
+// Middleware to ensure DB is connected before any API request
+const dbMiddleware = async (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+        try {
+            await connectDB();
+            next();
+        } catch (err) {
+            res.status(503).json({ error: "Database Connection Failed", details: err.message });
         }
-    });
+    } else {
+        next();
+    }
+};
+app.use(dbMiddleware);
 
 // Schemas
 // Schemas
@@ -337,9 +351,7 @@ app.get('/api/v1/session', async (req, res) => {
     const staffId = req.headers['x-staff-id'];
 
     try {
-        if (mongoose.connection.readyState !== 1) {
-            return res.status(503).json({ error: "Database offline" });
-        }
+        // Database check handled by middleware
 
         let config = await Config.findOne({ type: 'main' }).lean();
         if (!config) config = await Config.create({ type: 'main' });
