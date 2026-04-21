@@ -1,5 +1,4 @@
 [build]
-  base = "SafeVote"
   command = "npm install"
   publish = "."
   functions = "netlify/functions"
