@@ -269,11 +269,11 @@ app.use((req, res, next) => {
     // Adjusting to allow necessary external resources
     res.setHeader('Content-Security-Policy',
         "default-src 'self'; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; " +
-        "img-src 'self' data: https://www.shutterstock.com; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://translate.google.com https://www.gstatic.com; " +
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://www.gstatic.com https://translate.googleapis.com; " +
+        "img-src 'self' data: https://www.shutterstock.com https://translate.google.com https://www.gstatic.com; " +
         "font-src 'self' https://fonts.gstatic.com; " +
-        "connect-src 'self' https://vote-b8ro.onrender.com; " +
+        "connect-src 'self' https://unpkg.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
         "frame-ancestors 'none';"
     );
 
