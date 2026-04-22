@@ -223,33 +223,157 @@
 
         <!-- STUDENT LOGIN -->
         <div id="student-login-view" class="hidden fade-in">
-            <div class="auth-container">
-                <div class="card-custom" style="text-align:center; position:relative;">
-                    <button onclick="window.app.showHome()"
-                        style="position:absolute; top:20px; left:20px; background:none; border:none; color:var(--text-muted); cursor:pointer; font-weight:700;"><i
-                            data-lucide="move-left"></i> BACK</button>
-                    <div class="login-img-container">
-                        <i data-lucide="user-circle" size="60" style="color:var(--primary)"></i>
-                    </div>
-                    <h2 style="font-size:2rem; font-weight:900; margin-bottom:0.5rem">Student Access</h2>
-                    <p style="color:var(--text-muted); margin-bottom:2rem">Enter your unique student ID to vote.</p>
-                    <div class="form-group">
-                        <label class="form-label">Student ID Number</label>
-                        <input type="text" id="student-reg-input" class="form-input" placeholder="e.g. 714023******"
-                            inputmode="numeric" onkeyup="if(event.key==='Enter') window.app.handleStudentLogin()">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Password</label>
-                        <div style="position: relative;">
-                            <input type="password" id="student-pass-input" class="form-input" placeholder="••••••••"
-                                onkeyup="if(event.key==='Enter') window.app.handleStudentLogin()">
-                            <i data-lucide="eye" id="toggle-pass-icon" onclick="window.app.togglePasswordVisibility()"
-                                style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; width: 18px; height: 18px;"></i>
+            <div class="student-login-grid container">
+
+                <!-- LEFT PANEL: Voter Info -->
+                <div class="mobile-hidden fade-in" style="animation-delay: 0.1s;">
+                    <div class="card-custom" style="padding: 1.5rem; background: var(--glass); overflow: hidden; position: relative;">
+                        <div style="position: absolute; top: -40px; right: -40px; width: 120px; height: 120px; background: linear-gradient(135deg, rgba(37,99,235,0.15), rgba(14,165,233,0.1)); border-radius: 50%; pointer-events: none;"></div>
+                        <div style="position: absolute; bottom: -30px; left: -30px; width: 80px; height: 80px; background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(37,99,235,0.08)); border-radius: 50%; pointer-events: none;"></div>
+                        
+                        <h3 style="font-size: 0.8rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="vote" size="14"></i> Voter Information
+                            <span style="width: 6px; height: 6px; background: #10b981; border-radius: 50%; display: inline-block; animation: pulse 2s infinite;"></span>
+                        </h3>
+                        <div style="display: grid; gap: 1.25rem;">
+                            <div style="border-left: 3px solid var(--primary); padding-left: 1rem;">
+                                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">ELECTION STATUS</div>
+                                <div style="font-size: 1rem; font-weight: 800; color: #10b981;">● LIVE</div>
+                            </div>
+                            <div style="border-left: 3px solid #6366f1; padding-left: 1rem;">
+                                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">YOUR VOTE</div>
+                                <div style="font-size: 1rem; font-weight: 800;">Private & Encrypted</div>
+                            </div>
+                            <div style="border-left: 3px solid #f59e0b; padding-left: 1rem;">
+                                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">VERIFICATION</div>
+                                <div style="font-size: 1rem; font-weight: 800;">Blockchain Backed</div>
+                            </div>
+                            <div style="border-left: 3px solid #10b981; padding-left: 1rem;">
+                                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">SYSTEM</div>
+                                <div style="font-size: 1rem; font-weight: 800; color: #10b981;">Secure & Online</div>
+                            </div>
                         </div>
                     </div>
-                    <button onclick="window.app.handleStudentLogin()" class="btn-primary-custom"
-                        style="width:100%; padding:1.25rem;">Verify & Enter Portal</button>
                 </div>
+
+                <!-- CENTER PANEL: Login Form -->
+                <div class="auth-container" style="max-width: 450px; margin: 0;">
+                    <div class="card-custom student-login-card" style="text-align:center; position:relative; margin-bottom: 2rem; overflow: hidden;">
+                        <!-- Animated gradient top bar -->
+                        <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #2563eb, #0ea5e9, #6366f1, #2563eb); background-size: 300% 100%; animation: gradientShift 4s ease infinite;"></div>
+                        
+                        <button onclick="window.app.showHome()"
+                            style="position:absolute; top:20px; left:20px; background:none; border:none; color:var(--text-muted); cursor:pointer; font-weight:700; display: flex; align-items: center; gap: 0.3rem; transition: color 0.2s ease; z-index: 5;"
+                            onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-muted)'">
+                            <i data-lucide="move-left" size="18"></i> BACK
+                        </button>
+                        
+                        <!-- Avatar with animated spinning ring -->
+                        <div style="width: 90px; height: 90px; margin: 0.5rem auto 1.25rem; position: relative;">
+                            <div style="position: absolute; inset: -4px; border-radius: 50%; background: conic-gradient(from 0deg, #2563eb, #0ea5e9, #6366f1, #2563eb); animation: spinSlow 6s linear infinite; opacity: 0.6;"></div>
+                            <div style="position: absolute; inset: 0; border-radius: 50%; background: var(--card-bg); display: flex; align-items: center; justify-content: center; border: 3px solid var(--card-bg);">
+                                <i data-lucide="user-circle" size="48" style="color: var(--primary);"></i>
+                            </div>
+                        </div>
+
+                        <div style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.75rem; background: var(--primary-light); border-radius: var(--radius-pill); font-weight: 700; font-size: 0.65rem; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1rem;">
+                            <i data-lucide="shield-check" size="12"></i> Secure Student Portal
+                        </div>
+
+                        <h2 style="font-size: 1.75rem; font-weight: 900; margin-bottom: 0.4rem; background: linear-gradient(135deg, var(--text-main) 0%, var(--primary) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">Welcome, Voter</h2>
+                        <p style="color:var(--text-muted); margin-bottom: 1.75rem; font-size: 0.9rem;">Authenticate with your credentials to cast your vote</p>
+                        
+                        <div class="form-group">
+                            <label class="form-label" style="display: flex; align-items: center; gap: 0.4rem;">
+                                <i data-lucide="hash" size="12" style="color: var(--primary);"></i>
+                                Student ID Number
+                            </label>
+                            <div style="position: relative;">
+                                <input type="text" id="student-reg-input" class="form-input" placeholder="e.g. 714023******"
+                                    inputmode="numeric" onkeyup="if(event.key==='Enter') window.app.handleStudentLogin()"
+                                    style="padding-left: 2.75rem;">
+                                <i data-lucide="id-card" size="16" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;"></i>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" style="display: flex; align-items: center; gap: 0.4rem;">
+                                <i data-lucide="lock" size="12" style="color: var(--primary);"></i>
+                                Password
+                            </label>
+                            <div style="position: relative;">
+                                <input type="password" id="student-pass-input" class="form-input" placeholder="••••••••"
+                                    onkeyup="if(event.key==='Enter') window.app.handleStudentLogin()"
+                                    style="padding-left: 2.75rem;">
+                                <i data-lucide="key-round" size="16" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;"></i>
+                                <i data-lucide="eye" id="toggle-pass-icon" onclick="window.app.togglePasswordVisibility()"
+                                    style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; width: 18px; height: 18px;"></i>
+                            </div>
+                        </div>
+                        <button onclick="window.app.handleStudentLogin()" class="btn-primary-custom"
+                            style="width:100%; padding:1.25rem; font-size: 0.9rem; background: linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%); position: relative; overflow: hidden;">
+                            <i data-lucide="log-in" size="18"></i>
+                            Verify & Enter Portal
+                        </button>
+
+                        <!-- Trust indicators -->
+                        <div style="display: flex; justify-content: center; gap: 1.5rem; margin-top: 1.5rem; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.65rem; color: var(--text-muted); font-weight: 600;">
+                                <i data-lucide="lock" size="11" style="color: #10b981;"></i> SSL Encrypted
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.65rem; color: var(--text-muted); font-weight: 600;">
+                                <i data-lucide="shield-check" size="11" style="color: #10b981;"></i> Tamper Proof
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.65rem; color: var(--text-muted); font-weight: 600;">
+                                <i data-lucide="eye-off" size="11" style="color: #10b981;"></i> Anonymous
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT PANEL: Voting Guide -->
+                <div class="mobile-hidden fade-in" style="animation-delay: 0.2s;">
+                    <div class="card-custom" style="padding: 1.5rem; background: var(--glass); overflow: hidden; position: relative;">
+                        <div style="position: absolute; top: -30px; left: -30px; width: 100px; height: 100px; background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(14,165,233,0.08)); border-radius: 50%; pointer-events: none;"></div>
+                        
+                        <h3 style="font-size: 0.8rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="book-open" size="14"></i> Voting Guide
+                        </h3>
+                        <div style="display: grid; gap: 1rem;">
+                            <div style="background: rgba(37, 99, 235, 0.05); padding: 1rem; border-radius: 1rem; display: flex; gap: 0.75rem; align-items: flex-start;">
+                                <div style="background: var(--primary-light); width: 28px; height: 28px; min-width: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.7rem; color: var(--primary);">1</div>
+                                <div>
+                                    <div style="font-weight: 800; font-size: 0.75rem; margin-bottom: 0.15rem;">Login Securely</div>
+                                    <p style="font-size: 0.72rem; margin: 0;">Use your college-issued student ID and password.</p>
+                                </div>
+                            </div>
+                            <div style="background: rgba(37, 99, 235, 0.05); padding: 1rem; border-radius: 1rem; display: flex; gap: 0.75rem; align-items: flex-start;">
+                                <div style="background: var(--primary-light); width: 28px; height: 28px; min-width: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.7rem; color: var(--primary);">2</div>
+                                <div>
+                                    <div style="font-weight: 800; font-size: 0.75rem; margin-bottom: 0.15rem;">Review Candidates</div>
+                                    <p style="font-size: 0.72rem; margin: 0;">Browse all candidates before casting your vote.</p>
+                                </div>
+                            </div>
+                            <div style="background: rgba(37, 99, 235, 0.05); padding: 1rem; border-radius: 1rem; display: flex; gap: 0.75rem; align-items: flex-start;">
+                                <div style="background: var(--primary-light); width: 28px; height: 28px; min-width: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.7rem; color: var(--primary);">3</div>
+                                <div>
+                                    <div style="font-weight: 800; font-size: 0.75rem; margin-bottom: 0.15rem;">Cast Your Vote</div>
+                                    <p style="font-size: 0.72rem; margin: 0;">Select your candidate. Your choice is final and immutable.</p>
+                                </div>
+                            </div>
+                            <div style="background: rgba(16, 185, 129, 0.05); padding: 1rem; border-radius: 1rem; display: flex; gap: 0.75rem; align-items: flex-start;">
+                                <div style="background: rgba(16,185,129,0.1); width: 28px; height: 28px; min-width: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.7rem; color: #10b981;">✓</div>
+                                <div>
+                                    <div style="font-weight: 800; font-size: 0.75rem; margin-bottom: 0.15rem;">Get Confirmation</div>
+                                    <p style="font-size: 0.72rem; margin: 0;">Receive a blockchain-verified confirmation of your vote.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 1.5rem; text-align: center;">
+                            <div style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700;">VOTE CHAIN v4.0.2</div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 

@@ -791,6 +791,46 @@ img {
     }
 }
 
+/* --- Student Login Grid --- */
+.student-login-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    align-items: start;
+    margin: 2rem auto;
+    max-width: 480px;
+}
+
+@media (min-width: 1200px) {
+    .student-login-grid {
+        grid-template-columns: 1fr 450px 1fr;
+        max-width: none;
+        gap: 2rem;
+        margin: 3rem auto;
+    }
+}
+
+.student-login-card:hover {
+    transform: none !important;
+}
+
+/* --- Student Login Animations --- */
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+@keyframes spinSlow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.85); }
+}
+
 /* --- Toast --- */
 #toast {
     position: fixed;
