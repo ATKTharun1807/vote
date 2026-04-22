@@ -46,17 +46,19 @@
 }
 
 [data-theme="eye-protection"] {
-    --bg-main: #f4ecd8;
-    --text-main: #5b4636;
-    --text-muted: #8c735e;
-    --glass: rgba(244, 236, 216, 0.85);
-    --card-bg: #fdf6e3;
-    --card-border: #e6dec9;
-    --primary: #8b5e3c;
-    --primary-dark: #6f4a30;
-    --primary-light: #efe6d1;
-    --accent: #d4a373;
-    --accent-light: rgba(212, 163, 115, 0.12);
+    --bg-main: #f0f7f2;
+    --text-main: #1a3a2a;
+    --text-muted: #4a7a5a;
+    --glass: rgba(240, 247, 242, 0.88);
+    --card-bg: #ffffff;
+    --card-border: rgba(0, 107, 63, 0.15);
+    --primary: #006B3F;
+    --primary-dark: #005230;
+    --primary-light: rgba(0, 107, 63, 0.08);
+    --accent: #FFD700;
+    --accent-light: rgba(255, 215, 0, 0.12);
+    --shadow-md: 0 4px 6px -1px rgb(0 107 63 / 0.06), 0 2px 4px -2px rgb(0 107 63 / 0.04);
+    --shadow-lg: 0 10px 15px -3px rgb(0 107 63 / 0.08), 0 4px 6px -4px rgb(0 107 63 / 0.04);
 }
 
 /* --- Reset & Base --- */
@@ -1262,9 +1264,9 @@ img {
 }
 
 [data-theme="eye-protection"] .flatpickr-calendar {
-    background: #fdf6e3 !important;
-    color: #5b4636 !important;
-    border-color: #e6dec9 !important;
+    background: #ffffff !important;
+    color: #1a3a2a !important;
+    border-color: rgba(0, 107, 63, 0.15) !important;
 }
 
 /* --- Upload UI --- */
@@ -1418,3 +1420,147 @@ img {
         border: 1px solid #ccc;
     }
 }
+
+/* ============================================
+   SIET COLLEGE THEME OVERRIDES
+   Green (#006B3F), Yellow (#FFD700), White
+   ============================================ */
+
+/* Navbar green accent bar */
+[data-theme="eye-protection"] .navbar {
+    background: rgba(255, 255, 255, 0.95);
+    border-bottom: 2px solid #006B3F;
+}
+
+/* Hero title gradient */
+[data-theme="eye-protection"] .hero-title {
+    background: linear-gradient(135deg, #006B3F 0%, #008B4A 50%, #00A85A 100%) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+
+/* Hero badge */
+[data-theme="eye-protection"] .hero-badge {
+    background: rgba(0, 107, 63, 0.08);
+    color: #006B3F;
+    border: 1px solid rgba(0, 107, 63, 0.15);
+}
+
+/* Primary button (Student Login) - green */
+[data-theme="eye-protection"] .btn-primary-custom {
+    background: #006B3F;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 107, 63, 0.25);
+}
+
+[data-theme="eye-protection"] .btn-primary-custom:hover {
+    background: #005230;
+    box-shadow: 0 6px 16px rgba(0, 107, 63, 0.35);
+}
+
+/* Staff login button - gold accent */
+[data-theme="eye-protection"] .btn-group button:nth-child(2) {
+    background: #FFD700 !important;
+    color: #1a3a2a !important;
+    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3) !important;
+}
+
+[data-theme="eye-protection"] .btn-group button:nth-child(2):hover {
+    background: #e6c200 !important;
+    box-shadow: 0 6px 16px rgba(255, 215, 0, 0.4) !important;
+}
+
+/* Admin portal button */
+[data-theme="eye-protection"] #admin-portal-btn {
+    background: #ffffff !important;
+    color: #006B3F !important;
+    border: 2px solid #006B3F !important;
+}
+
+[data-theme="eye-protection"] #admin-portal-btn:hover {
+    background: rgba(0, 107, 63, 0.05) !important;
+}
+
+/* Cards with subtle green border */
+[data-theme="eye-protection"] .card-custom {
+    border-color: rgba(0, 107, 63, 0.12);
+}
+
+[data-theme="eye-protection"] .card-custom:hover {
+    border-color: #006B3F;
+    box-shadow: 0 12px 20px -5px rgba(0, 107, 63, 0.12);
+}
+
+/* Feature boxes */
+[data-theme="eye-protection"] .feature-box:hover {
+    border-color: #006B3F;
+    background: rgba(0, 107, 63, 0.04);
+}
+
+[data-theme="eye-protection"] .feature-icon {
+    background: rgba(0, 107, 63, 0.08);
+    color: #006B3F;
+}
+
+/* Theme button active state - green + gold ring */
+[data-theme="eye-protection"] .theme-btn.active {
+    background: #006B3F !important;
+    color: #FFD700 !important;
+    box-shadow: 0 3px 8px rgba(0, 107, 63, 0.4), 0 0 0 2px rgba(255, 215, 0, 0.3);
+}
+
+/* Theme button hover */
+[data-theme="eye-protection"] .theme-btn:hover {
+    color: #006B3F;
+    background: rgba(0, 107, 63, 0.06);
+}
+
+/* Dashboard nav tabs active */
+[data-theme="eye-protection"] .nav-tab.active-vote {
+    background: #006B3F !important;
+    box-shadow: 0 3px 10px rgba(0, 107, 63, 0.35) !important;
+}
+
+[data-theme="eye-protection"] .nav-tab.active-guide {
+    background: #FFD700 !important;
+    color: #1a3a2a !important;
+    box-shadow: 0 3px 10px rgba(255, 215, 0, 0.35) !important;
+}
+
+[data-theme="eye-protection"] .nav-tab.active-blockchain {
+    background: #008B4A !important;
+    box-shadow: 0 3px 10px rgba(0, 139, 74, 0.35) !important;
+}
+
+/* Form input focus */
+[data-theme="eye-protection"] .form-input:focus {
+    border-color: #006B3F;
+    box-shadow: 0 0 0 3px rgba(0, 107, 63, 0.08);
+}
+
+/* Search input focus */
+[data-theme="eye-protection"] .search-premium-input:focus {
+    border-color: #006B3F;
+    box-shadow: 0 0 0 4px rgba(0, 107, 63, 0.08), var(--shadow-md);
+}
+
+/* Toast */
+[data-theme="eye-protection"] .toast-icon {
+    color: #006B3F;
+}
+
+/* Student login gradient bar */
+[data-theme="eye-protection"] .student-login-card > div:first-child {
+    background: linear-gradient(90deg, #006B3F, #FFD700, #008B4A, #006B3F) !important;
+    background-size: 300% 100% !important;
+}
+
+/* Scrollbar */
+[data-theme="eye-protection"] ::-webkit-scrollbar-thumb {
+    background: rgba(0, 107, 63, 0.2);
+}
+
+[data-theme="eye-protection"] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 107, 63, 0.4);
+}

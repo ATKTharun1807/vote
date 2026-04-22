@@ -70,10 +70,10 @@ class NexusAnimation {
                 };
             case 'eye-protection':
                 return {
-                    primary: '217, 119, 6', // Amber 600
-                    secondary: '251, 191, 36', // Amber 400
-                    accent: '146, 64, 14', // Amber 800
-                    bg: '25, 20, 15'
+                    primary: '0, 107, 63', // SIET Green
+                    secondary: '255, 215, 0', // SIET Gold
+                    accent: '0, 139, 74', // SIET Green Light
+                    bg: '240, 247, 242'
                 };
             default: // light
                 return {
