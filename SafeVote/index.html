@@ -69,9 +69,9 @@
     <nav class="navbar">
         <div class="container flex-between">
             <a href="#" onclick="window.app.showHome(); return false;"
-                style="text-decoration:none; display:flex; align-items:center; gap:0.5rem; color:var(--primary); font-weight:900; font-size:1.5rem;">
+                style="text-decoration:none; display:flex; align-items:center; gap:0.4rem; color:var(--primary); font-weight:900; font-size:1.15rem; flex-shrink:0;">
                 <div
-                    style="background:var(--card-bg); width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; overflow:hidden; border:1px solid var(--card-border);">
+                    style="background:var(--card-bg); width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; overflow:hidden; border:1px solid var(--card-border); flex-shrink:0;">
                     <img src="https://www.shutterstock.com/image-vector/vote-hand-india-election-260nw-1338684383.jpg"
                         alt="SafeVote" style="width:100%; height:100%; object-fit:cover;">
                 </div>
@@ -93,7 +93,7 @@
                     style="background:none; border:none; font-weight:700; color:var(--text-muted); cursor:pointer;">FEATURES</button>
             </div>
 
-            <div class="flex-between" style="gap:1rem;">
+            <div class="flex-between" style="gap:0.5rem; flex-direction:row; align-items:center;">
                 <div class="theme-switcher-premium">
                     <button onclick="window.app.setTheme('light')" title="Light Mode" class="theme-btn"
                         data-mode="light">
@@ -112,14 +112,14 @@
                     <i data-lucide="menu"></i>
                 </button>
 
-                <div id="auth-section" class="hidden flex-between" style="gap:1.5rem;">
-                    <div style="text-align:right">
-                        <div id="nav-username" style="font-weight:800; font-size:0.9rem;">User Name</div>
-                        <div id="nav-role" style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">
+                <div id="auth-section" class="hidden" style="display:flex; align-items:center; gap:0.75rem;">
+                    <div style="text-align:right;" class="mobile-hidden">
+                        <div id="nav-username" style="font-weight:800; font-size:0.8rem; white-space:nowrap;">User Name</div>
+                        <div id="nav-role" style="font-size:0.6rem; color:var(--text-muted); text-transform:uppercase; white-space:nowrap; max-width:160px; overflow:hidden; text-overflow:ellipsis;">
                             ID: 123456</div>
                     </div>
                     <button onclick="window.app.logout()"
-                        style="background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.2); color:#ef4444; padding:0.5rem 1rem; border-radius:0.75rem; font-weight:700; cursor:pointer;">EXIT</button>
+                        style="background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.2); color:#ef4444; padding:0.4rem 0.75rem; border-radius:0.6rem; font-weight:700; cursor:pointer; font-size:0.75rem; white-space:nowrap;">EXIT</button>
                 </div>
             </div>
         </div>
@@ -135,29 +135,28 @@
                 <p class="hero-desc">The next generation of student elections. Built on blockchain principles to ensure
                     your choice is permanent, private, and powerful.</p>
                 <div class="btn-group">
-                    <button onclick="window.app.showView('student-login')" class="btn-primary-custom"
-                        style="padding:1.5rem 3rem; display:flex; align-items:center; gap:0.75rem;">
-                        <i data-lucide="user" size="24"></i> STUDENT LOGIN
+                    <button onclick="window.app.showView('student-login')" class="btn-primary-custom">
+                        <i data-lucide="user" size="20"></i> STUDENT LOGIN
                     </button>
                     <button onclick="window.app.showView('staff-login')" class="btn-primary-custom"
-                        style="padding:1.5rem 3rem; background:var(--accent); display:flex; align-items:center; gap:0.75rem;">
-                        <i data-lucide="award" size="24"></i> STAFF LOGIN
+                        style="background:var(--accent);">
+                        <i data-lucide="award" size="20"></i> STAFF LOGIN
                     </button>
                     <button id="admin-portal-btn" onclick="window.app.showView('admin-login')"
                         class="btn-primary-custom"
-                        style="padding:1.5rem 3rem; background:var(--card-bg); color:var(--text-main); border:2px solid var(--card-border); display:flex; align-items:center; gap:0.75rem;">
-                        <i data-lucide="shield-check" size="24"></i> ADMIN PORTAL
+                        style="background:var(--card-bg); color:var(--text-main); border:2px solid var(--card-border);">
+                        <i data-lucide="shield-check" size="20"></i> ADMIN PORTAL
                     </button>
                 </div>
             </header>
 
             <!-- About Section -->
-            <section id="about-section" style="padding:4rem 0; border-top:1px solid #e2e8f0;">
-                <div style="text-align:center; margin-bottom:4rem;">
-                    <h2 style="font-size:2.5rem; font-weight:900;">How it Works</h2>
+            <section id="about-section" style="padding:2.5rem 0; border-top:1px solid var(--card-border);">
+                <div style="text-align:center; margin-bottom:2rem;">
+                    <h2 style="font-size:clamp(1.5rem, 5vw, 2.5rem); font-weight:900;">How it Works</h2>
                     <p style="color:var(--text-muted)">The most transparent election system ever built.</p>
                 </div>
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:2rem;">
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap:1rem;">
                     <div class="card-custom" style="text-align:center">
                         <div
                             style="background:rgba(14, 165, 233, 0.1); color:var(--accent); width:60px; height:60px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 1.5rem;">
@@ -189,9 +188,9 @@
             </section>
 
             <!-- Features Section - SEPARATE BOXES -->
-            <section id="features-section" style="padding:4rem 0; border-top:1px solid #e2e8f0; margin-bottom:4rem;">
+            <section id="features-section" style="padding:2.5rem 0; border-top:1px solid var(--card-border); margin-bottom:2rem;">
                 <div style="text-align:center; margin-bottom:1rem;">
-                    <h2 style="font-size:2.5rem; font-weight:900;">System Features</h2>
+                    <h2 style="font-size:clamp(1.5rem, 5vw, 2.5rem); font-weight:900;">System Features</h2>
                     <p style="color:var(--text-muted)">Everything you need for a fair election.</p>
                 </div>
                 <div class="feature-grid">

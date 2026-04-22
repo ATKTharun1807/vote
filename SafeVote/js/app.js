@@ -1087,7 +1087,7 @@ export class App {
                     <div style="padding: 2rem;">
                         <p style="color:var(--text-muted); font-size: 0.9rem; margin-top: 0;">Generate moderator keys to allow others to manage this election without knowing your master key.</p>
                         
-                        <div id="admin-access-container" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; margin: 1.5rem 0;">
+                        <div id="admin-access-container" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 1rem; margin: 1.5rem 0;">
                             <!-- Keys will be injected here -->
                             <div style="text-align:center; padding: 2rem; color:var(--text-muted); grid-column: 1/-1;">Loading...</div>
                         </div>
@@ -2047,7 +2047,7 @@ export class App {
                     <h2 style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1.5rem;">
                         <i data-lucide="help-circle" style="color:var(--primary)"></i> Voter Participation Guide
                     </h2>
-                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:2rem;">
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap:2rem;">
                         <div>
                             <h3 style="font-size:1.1rem; color:var(--primary); margin-bottom:1rem;">How to Vote</h3>
                             <ul style="line-height:2; list-style: none; padding:0;">
@@ -2077,7 +2077,7 @@ export class App {
                     <h2 style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1.5rem;">
                         <i data-lucide="book-open" style="color:var(--primary)"></i> Admin Control Guide
                     </h2>
-                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:2rem;">
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap:2rem;">
                         <div>
                             <h3 style="font-size:1.1rem; color:var(--primary); margin-bottom:1rem;">Core Operations</h3>
                             <ul style="line-height:2; list-style: none; padding:0;">
@@ -2156,7 +2156,8 @@ export class App {
 
         // Initial call
         await updateIntegrityUI();
-        this.integrityInterval = setInterval(updateIntegrityUI, 3000);
+        // 30s is sufficient for status display, avoids hammering serverless functions
+        this.integrityInterval = setInterval(updateIntegrityUI, 30000);
     }
 
     renderStaffTab(container) {

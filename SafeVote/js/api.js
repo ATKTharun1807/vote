@@ -42,6 +42,26 @@ export class VotingAPI {
         this.endTime = null;
         this.allowedDepartments = [];
         this.refreshInterval = null;
+        this._isSyncing = false; // Guard against overlapping syncs
+        this._syncRetries = 0;
+        this._maxRetries = 3;
+    }
+
+    // Fetch with timeout to prevent hanging requests on cold starts
+    async _fetch(url, options = {}, timeoutMs = 15000) {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url, { ...options, signal: controller.signal });
+            clearTimeout(id);
+            return res;
+        } catch (e) {
+            clearTimeout(id);
+            if (e.name === 'AbortError') {
+                throw new Error('Request timed out');
+            }
+            throw e;
+        }
     }
 
     getAuthHeaders() {
@@ -57,7 +77,7 @@ export class VotingAPI {
     async getHealth() {
         try {
             const start = Date.now();
-            const res = await fetch(`${this.baseUrl}/api/health`);
+            const res = await this._fetch(`${this.baseUrl}/api/health`, {}, 8000);
             const end = Date.now();
             if (!res.ok) throw new Error();
             const data = await res.json();
@@ -105,15 +125,22 @@ export class VotingAPI {
     }
 
     async syncData() {
+        // Guard: prevent overlapping sync calls from piling up
+        if (this._isSyncing) return;
+        this._isSyncing = true;
+
         try {
             const headers = this.getAuthHeaders();
-            const res = await fetch(`${this.baseUrl}/api/v1/session`, { headers });
+            const res = await this._fetch(`${this.baseUrl}/api/v1/session`, { headers }, 15000);
             if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
             const envelope = await res.json();
 
             // Decode the masked payload
             const data = this.#decode(envelope.p);
-            if (!data) return;
+            if (!data) { this._isSyncing = false; return; }
+
+            // Reset retry counter on success
+            this._syncRetries = 0;
 
             // Strict Role Validation
             this.authenticated = data.authenticated || false;
@@ -125,6 +152,7 @@ export class VotingAPI {
                 console.warn("Admin Session invalid. Logging out...");
                 this.#adminKey = null;
                 if (window.app) window.app.logout();
+                this._isSyncing = false;
                 return;
             }
 
@@ -133,6 +161,7 @@ export class VotingAPI {
                 console.warn("Student Session invalid. Logging out...");
                 this.#studentToken = null;
                 if (window.app) window.app.logout();
+                this._isSyncing = false;
                 return;
             }
 
@@ -141,6 +170,7 @@ export class VotingAPI {
                 console.warn("Staff Session invalid. Logging out...");
                 this.#staffToken = null;
                 if (window.app) window.app.logout();
+                this._isSyncing = false;
                 return;
             }
 
@@ -183,12 +213,25 @@ export class VotingAPI {
         } catch (e) {
             console.error("Sync Error:", e);
             this.isLive = false;
+            this._syncRetries++;
+
+            // Exponential backoff: slow down polling if server is struggling
+            if (this._syncRetries >= this._maxRetries && this.refreshInterval) {
+                clearInterval(this.refreshInterval);
+                const backoffMs = Math.min(30000, 5000 * Math.pow(2, this._syncRetries - this._maxRetries));
+                console.warn(`Backing off polling to ${backoffMs / 1000}s`);
+                this.refreshInterval = setInterval(() => this.syncData(), backoffMs);
+            }
+        } finally {
+            this._isSyncing = false;
         }
     }
 
     startPolling() {
         if (this.refreshInterval) clearInterval(this.refreshInterval);
-        this.refreshInterval = setInterval(() => this.syncData(), 3000);
+        this._syncRetries = 0;
+        // 10s interval is optimal for serverless (avoids excessive cold starts)
+        this.refreshInterval = setInterval(() => this.syncData(), 10000);
     }
 
     stopPolling() {
