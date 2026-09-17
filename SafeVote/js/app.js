@@ -121,8 +121,8 @@ export class App {
     async init() {
         console.log("Initializing SafeVote App...");
 
-        // Start Live Integrity Updates
-        this.startSystemIntegrityUpdates();
+        // Defer Live Integrity Updates (non-critical, runs after UI is ready)
+        setTimeout(() => this.startSystemIntegrityUpdates(), 3000);
 
         // 1. Immediate Theme & Navigation setup
         this.setTheme(this.theme);
@@ -246,8 +246,15 @@ export class App {
             if (el) el.classList.add('hidden');
         });
         const active = document.getElementById(id);
-        if (active) active.classList.remove('hidden');
-        if (window.lucide) window.lucide.createIcons();
+        if (active) {
+            active.classList.remove('hidden');
+            // Scope icon rendering to only the active view for performance
+            if (window.lucide) {
+                requestAnimationFrame(() => {
+                    window.lucide.createIcons({ attrs: {}, nameAttr: 'data-lucide', icons: {}, el: active });
+                });
+            }
+        }
 
         // Update Election Name on Home screen if visible
         if (id === 'home-view') {
@@ -396,12 +403,6 @@ export class App {
             document.documentElement.setAttribute('data-role', this.role);
         }
 
-        // Ensure data is synchronized immediately with the current role/key
-        await api.syncData();
-
-        // Ensure candidates are loaded for everyone
-        await api.fetchCandidates();
-
         // Use preserved tab if valid for role, else default
         let targetTab = this.activeTab;
         const adminTabs = ['admin', 'students', 'staff', 'results', 'blockchain', 'guide', 'vote'];
@@ -413,8 +414,14 @@ export class App {
             if (!voterTabs.includes(targetTab)) targetTab = 'vote';
         }
 
+        // Show tab immediately with cached data, then sync in background
         this.switchTab(targetTab);
-        api.startPolling(); // Activation only after login
+        api.startPolling();
+
+        // Parallelize network calls instead of sequential await
+        Promise.all([api.syncData(), api.fetchCandidates()]).then(() => {
+            this.renderContent(); // Re-render with fresh data
+        });
     }
 
     updateNav() {
@@ -573,7 +580,12 @@ export class App {
         else if (this.activeTab === 'blockchain') this.renderBlockchainTab(container);
         else if (this.activeTab === 'guide') this.renderGuideTab(container);
 
-        if (window.lucide) window.lucide.createIcons();
+        // Scope icon rendering to content area only (avoid full DOM rescan)
+        if (window.lucide) {
+            requestAnimationFrame(() => {
+                window.lucide.createIcons({ attrs: {}, nameAttr: 'data-lucide', icons: {}, el: container });
+            });
+        }
 
         // Premium Date Picker Initialization
         if (this.activeTab === 'admin' && window.flatpickr) {
@@ -764,7 +776,23 @@ export class App {
             const searchStr = `${c.name} ${c.party || 'Independent'}`;
 
             html += `
-                <div class="card-custom searchable-candidate" data-search="${searchStr}" style="padding: 2.5rem 1.5rem; text-align:center; display: flex; flex-direction: column; align-items: center;">
+                <div class="card-custom searchable-candidate" data-search="${searchStr}" style="padding: 2rem 1.5rem; text-align:center; display: flex; flex-direction: column; align-items: center; position: relative; overflow: hidden;">
+                    <!-- Party Symbol Badge -->
+                    ${c.partySymbol ? `
+                        <div style="position: absolute; top: 1rem; right: 1rem; width: 40px; height: 40px; border-radius: 50%; background: white; border: 1px solid var(--card-border); padding: 5px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                            <img src="${c.partySymbol}" alt="Symbol" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                        </div>
+                    ` : ''}
+
+                    <!-- Candidate Photo -->
+                    <div style="width: 120px; height: 120px; border-radius: 50%; background: var(--primary-light); margin-bottom: 1.5rem; border: 4px solid var(--card-border); overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-md);">
+                        ${c.photo ? `
+                            <img src="${c.photo}" alt="${c.name}" style="width: 100%; height: 100%; object-fit: cover;">
+                        ` : `
+                            <i data-lucide="user" size="60" style="color: var(--primary); opacity: 0.5;"></i>
+                        `}
+                    </div>
+
                     <h3 style="margin:0; font-size: 1.5rem; font-weight: 800; color: var(--text-main)">${c.name}</h3>
                     <div style="margin-top:0.5rem; background: var(--primary-light); color: var(--primary); padding: 0.25rem 0.75rem; border-radius: 99px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
                         ${c.party || 'Independent'}
@@ -969,12 +997,28 @@ export class App {
                         ${api.localCandidates.length === 0 ? `<tr><td colspan="3" style="text-align:center; padding:3rem; color:var(--text-muted)">No candidates added yet. Use the form below.</td></tr>` : ''}
                         ${[...api.localCandidates].sort((a, b) => a.name.localeCompare(b.name)).map(c => `
                             <tr class="searchable-candidate-row" data-search="${c.name} ${c.party}">
-                                <td><b>${c.name}</b><br><small style="color:var(--text-muted)">${c.party}</small></td>
+                                <td>
+                                    <div style="display:flex; align-items:center; gap:0.75rem;">
+                                        <div style="width:36px; height:36px; border-radius:50%; background:var(--primary-light); overflow:hidden; display:flex; align-items:center; justify-content:center; border:1px solid var(--card-border); flex-shrink:0;">
+                                            ${c.photo ? `<img src="${c.photo}" style="width:100%; height:100%; object-fit:cover;">` : `<i data-lucide="user" size="14" style="opacity:0.5"></i>`}
+                                        </div>
+                                        <div>
+                                            <div style="display:flex; align-items:center; gap:0.4rem;">
+                                                <b>${c.name}</b>
+                                                ${c.partySymbol ? `<img src="${c.partySymbol}" title="${c.party}" style="width:16px; height:16px; object-fit:contain;">` : ''}
+                                            </div>
+                                            <small style="color:var(--text-muted)">${c.party}</small>
+                                        </div>
+                                    </div>
+                                </td>
                                 <td style="text-align:center">
                                     <span style="background:var(--primary-light); color:var(--primary); padding:0.25rem 0.75rem; border-radius:12px; font-weight:900">${c.votes}</span>
                                 </td>
                                 <td style="text-align:right">
-                                    <button onclick="window.app.handleDeleteCandidate('${c.id}', '${c.name.replace(/'/g, "\\'")}')" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer">REMOVE</button>
+                                    <div style="display:flex; justify-content:flex-end; gap:1.25rem;">
+                                        <button onclick="window.app.startEditCandidate('${c.id}')" style="background:none; border:none; color:var(--primary); font-weight:700; cursor:pointer; text-transform:uppercase; font-size:0.75rem;">EDIT</button>
+                                        <button onclick="window.app.handleDeleteCandidate('${c.id}', '${c.name.replace(/'/g, "\\'")}')" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer; text-transform:uppercase; font-size:0.75rem;">REMOVE</button>
+                                    </div>
                                 </td>
                             </tr>
                         `).join('')}
@@ -982,12 +1026,15 @@ export class App {
                 </table>
             </div>
 
-            <div class="add-candidate-section">
-                <div style="margin-bottom: 1.5rem;">
-                    <h3 style="margin:0">Add New Candidate</h3>
-                    <p style="margin:0; font-size:0.85rem; color:var(--text-muted)">Add participants to the election ballot.</p>
+            <div class="add-candidate-section" id="candidate-form-container">
+                <div style="margin-bottom: 1.5rem; display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div>
+                        <h3 style="margin:0">${this.editingCandidateId ? 'Update Candidate' : 'Add New Candidate'}</h3>
+                        <p style="margin:0; font-size:0.85rem; color:var(--text-muted)">${this.editingCandidateId ? 'Modify candidate details.' : 'Add participants to the election ballot.'}</p>
+                    </div>
+                    ${this.editingCandidateId ? `<button onclick="window.app.cancelEdit()" style="background:none; border:none; color:#ef4444; font-weight:700; cursor:pointer; font-size:0.75rem;">CANCEL EDIT</button>` : ''}
                 </div>
-                <div class="grid-form">
+                <div class="grid-form" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Full Name</label>
                         <input id="cn" class="form-input" placeholder="e.g. John Doe" autocomplete="off" onkeyup="if(event.key==='Enter') window.app.handleAdd()">
@@ -996,7 +1043,41 @@ export class App {
                         <label class="form-label">Group / Party</label>
                         <input id="cp" class="form-input" placeholder="e.g. Independent" autocomplete="off" onkeyup="if(event.key==='Enter') window.app.handleAdd()">
                     </div>
-                    <button id="save-btn" onclick="window.app.handleAdd()" class="btn-primary-custom" style="padding: 1rem 2rem; width:100%">ADD TO LIST</button>
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Candidate Photo</label>
+                        <div class="premium-upload-box" id="up-box-cphoto">
+                            <input type="file" id="cphoto" accept="image/*" onchange="window.app.handleImagePreview('cphoto')">
+                            <div class="upload-placeholder" id="placeholder-cphoto">
+                                <i data-lucide="camera" size="24"></i>
+                                <span>Click or Drag Photo</span>
+                            </div>
+                            <div class="upload-preview-container" id="preview-container-cphoto">
+                                <img src="" class="upload-preview-img" id="preview-img-cphoto">
+                                <div class="upload-actions" onclick="event.stopPropagation(); window.app.clearImagePreview('cphoto')">
+                                    <i data-lucide="x" size="16"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Party Symbol</label>
+                        <div class="premium-upload-box" id="up-box-csymbol">
+                            <input type="file" id="csymbol" accept="image/*" onchange="window.app.handleImagePreview('csymbol')">
+                            <div class="upload-placeholder" id="placeholder-csymbol">
+                                <i data-lucide="target" size="24"></i>
+                                <span>Click or Drag Symbol</span>
+                            </div>
+                            <div class="upload-preview-container" id="preview-container-csymbol">
+                                <img src="" class="upload-preview-img" id="preview-img-csymbol">
+                                <div class="upload-actions" onclick="event.stopPropagation(); window.app.clearImagePreview('csymbol')">
+                                    <i data-lucide="x" size="16"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="save-btn" onclick="window.app.handleAdd()" class="btn-primary-custom" style="padding: 1rem 2rem; width:100%; grid-column: 1 / -1; margin-top: 1rem;">
+                        ${this.editingCandidateId ? 'UPDATE CANDIDATE' : 'ADD TO LIST'}
+                    </button>
                 </div>
             </div>
             
@@ -1018,7 +1099,7 @@ export class App {
                     <div style="padding: 2rem;">
                         <p style="color:var(--text-muted); font-size: 0.9rem; margin-top: 0;">Generate moderator keys to allow others to manage this election without knowing your master key.</p>
                         
-                        <div id="admin-access-container" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; margin: 1.5rem 0;">
+                        <div id="admin-access-container" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 1rem; margin: 1.5rem 0;">
                             <!-- Keys will be injected here -->
                             <div style="text-align:center; padding: 2rem; color:var(--text-muted); grid-column: 1/-1;">Loading...</div>
                         </div>
@@ -1547,7 +1628,8 @@ export class App {
             input.type = 'password';
             icon.setAttribute('data-lucide', 'eye');
         }
-        if (window.lucide) window.lucide.createIcons();
+        // Only re-render the single icon, not the whole DOM
+        if (window.lucide) window.lucide.createIcons({ attrs: {}, nameAttr: 'data-lucide', icons: {}, el: icon.parentElement });
     }
 
     async refreshResults() {
@@ -1611,11 +1693,17 @@ export class App {
             html += `
                 <div class="card-custom" style="display:flex; justify-content:space-between; align-items:center; ${isWinner ? 'border:2px solid #10b981; background:#f0fdf4' : ''}">
                     <div style="display:flex; align-items:center; gap:1.5rem">
-                        <div style="width:40px; height:40px; border-radius:50%; background:${isWinner ? '#10b981' : 'var(--primary-light)'}; color:${isWinner ? 'white' : 'var(--primary)'}; display:flex; align-items:center; justify-content:center; font-weight:900">
+                        <div style="width:40px; height:40px; border-radius:50%; background:${isWinner ? '#10b981' : 'var(--primary-light)'}; color:${isWinner ? 'white' : 'var(--primary)'}; display:flex; align-items:center; justify-content:center; font-weight:900; flex-shrink:0;">
                             ${index + 1}
                         </div>
+                        <div style="width:50px; height:50px; border-radius:50%; background:var(--primary-light); overflow:hidden; display:flex; align-items:center; justify-content:center; border:2px solid var(--card-border); flex-shrink:0;">
+                            ${c.photo ? `<img src="${c.photo}" style="width:100%; height:100%; object-fit:cover;">` : `<i data-lucide="user" size="20" style="opacity:0.5"></i>`}
+                        </div>
                         <div>
-                            <h3 style="margin:0">${c.name} ${isWinner ? '🏆' : ''}</h3>
+                            <div style="display:flex; align-items:center; gap:0.5rem;">
+                                <h3 style="margin:0">${c.name} ${isWinner ? '🏆' : ''}</h3>
+                                ${c.partySymbol ? `<img src="${c.partySymbol}" style="width:20px; height:20px; object-fit:contain;">` : ''}
+                            </div>
                             <small style="color:var(--text-muted); font-weight:600">${c.party}</small>
                         </div>
                     </div>
@@ -1750,27 +1838,144 @@ export class App {
         }
     }
 
-    handleAdd() {
+    async handleAdd() {
         const n = document.getElementById('cn').value.trim();
         const p = document.getElementById('cp').value.trim();
+        const photoFile = document.getElementById('cphoto').files[0];
+        const symbolFile = document.getElementById('csymbol').files[0];
 
         if (!(/^[A-Za-z\s]+$/.test(n))) {
             return this.showToast("Letters only for name", "error");
         }
 
         if (n && p) {
-            api.addCandidate(n, p).then(async () => {
-                this.showToast("Candidate Added!");
-                await api.fetchCandidates(); // Refresh list
-                this.renderContent();
-                const cn = document.getElementById('cn');
-                const cp = document.getElementById('cp');
-                if (cn) cn.value = '';
-                if (cp) cp.value = '';
-            }).catch(err => {
-                this.showToast("Error saving: " + (err.message || "Unknown error"), "error");
-            });
+            const saveBtn = document.getElementById('save-btn');
+            const originalText = saveBtn.textContent;
+            saveBtn.textContent = "PROCESSING...";
+            saveBtn.disabled = true;
+
+            try {
+                const toBase64 = file => new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.src = e.target.result;
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            let width = img.width;
+                            let height = img.height;
+                            const max_size = 800; // Max dimension for profiles
+
+                            if (width > height) {
+                                if (width > max_size) {
+                                    height *= max_size / width;
+                                    width = max_size;
+                                }
+                            } else {
+                                if (height > max_size) {
+                                    width *= max_size / height;
+                                    height = max_size;
+                                }
+                            }
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+                            resolve(canvas.toDataURL('image/jpeg', 0.8)); // Compressed
+                        };
+                    };
+                    reader.onerror = error => reject(error);
+                });
+
+                const data = { name: n, party: p };
+                if (photoFile) data.photo = await toBase64(photoFile);
+                if (symbolFile) data.symbol = await toBase64(symbolFile);
+
+                const action = this.editingCandidateId 
+                    ? api.updateCandidate(this.editingCandidateId, data)
+                    : api.addCandidate(data);
+
+                action.then(async () => {
+                    this.showToast(this.editingCandidateId ? "Candidate Updated!" : "Candidate Added!");
+                    this.editingCandidateId = null; 
+                    await api.fetchCandidates(); // Refresh list
+                    this.renderContent();
+                    
+                    const cn = document.getElementById('cn');
+                    const cp = document.getElementById('cp');
+                    const cphoto = document.getElementById('cphoto');
+                    const csymbol = document.getElementById('csymbol');
+                    if (cn) cn.value = '';
+                    if (cp) cp.value = '';
+                    if (cphoto) cphoto.value = '';
+                    if (csymbol) csymbol.value = '';
+                }).catch(err => {
+                    this.showToast("Error: " + (err.message || "Unknown error"), "error");
+                }).finally(() => {
+                    saveBtn.textContent = originalText;
+                    saveBtn.disabled = false;
+                });
+            } catch (e) {
+                this.showToast("Image error: " + e.message, "error");
+                saveBtn.textContent = originalText;
+                saveBtn.disabled = false;
+            }
         }
+    }
+
+    startEditCandidate(id) {
+        const c = api.localCandidates.find(cand => cand.id === id);
+        if (!c) return;
+
+        this.editingCandidateId = id;
+        this.renderContent(); // Rerender to update form title/button
+
+        // Scroll to form
+        const form = document.getElementById('candidate-form-container');
+        if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Populate fields
+        setTimeout(() => {
+            const cn = document.getElementById('cn');
+            const cp = document.getElementById('cp');
+            if (cn) cn.value = c.name;
+            if (cp) cp.value = c.party;
+        }, 50);
+    }
+
+    cancelEdit() {
+        this.editingCandidateId = null;
+        this.renderContent();
+    }
+
+    handleImagePreview(id) {
+        const input = document.getElementById(id);
+        const placeholder = document.getElementById(`placeholder-${id}`);
+        const container = document.getElementById(`preview-container-${id}`);
+        const img = document.getElementById(`preview-img-${id}`);
+
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                img.src = e.target.result;
+                placeholder.style.display = 'none';
+                container.classList.add('active');
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    clearImagePreview(id) {
+        const input = document.getElementById(id);
+        const placeholder = document.getElementById(`placeholder-${id}`);
+        const container = document.getElementById(`preview-container-${id}`);
+        const img = document.getElementById(`preview-img-${id}`);
+
+        input.value = "";
+        img.src = "";
+        placeholder.style.display = 'block';
+        container.classList.remove('active');
     }
 
     handleReset() {
@@ -1855,7 +2060,7 @@ export class App {
                     <h2 style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1.5rem;">
                         <i data-lucide="help-circle" style="color:var(--primary)"></i> Voter Participation Guide
                     </h2>
-                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:2rem;">
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap:2rem;">
                         <div>
                             <h3 style="font-size:1.1rem; color:var(--primary); margin-bottom:1rem;">How to Vote</h3>
                             <ul style="line-height:2; list-style: none; padding:0;">
@@ -1885,7 +2090,7 @@ export class App {
                     <h2 style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1.5rem;">
                         <i data-lucide="book-open" style="color:var(--primary)"></i> Admin Control Guide
                     </h2>
-                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:2rem;">
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap:2rem;">
                         <div>
                             <h3 style="font-size:1.1rem; color:var(--primary); margin-bottom:1rem;">Core Operations</h3>
                             <ul style="line-height:2; list-style: none; padding:0;">
@@ -1964,7 +2169,8 @@ export class App {
 
         // Initial call
         await updateIntegrityUI();
-        this.integrityInterval = setInterval(updateIntegrityUI, 3000);
+        // 30s is sufficient for status display, avoids hammering serverless functions
+        this.integrityInterval = setInterval(updateIntegrityUI, 30000);
     }
 
     renderStaffTab(container) {

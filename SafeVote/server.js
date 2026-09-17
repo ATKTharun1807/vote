@@ -79,29 +79,42 @@ function calculateBlockHash(index, timestamp, data, previousHash) {
 // MongoDB Connection
 const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) {
-    console.error("❌ FATAL ERROR: MONGO_URI not found in environment variables!");
-    process.exit(1);
+    console.error("❌ ERROR: MONGO_URI not found in environment variables! Database features will not work.");
 }
 const JWT_SALT = process.env.VOTER_SALT || "safevote_salt_2024";
 
-console.log("🚀 Starting SafeVote Server...");
-console.log("🔗 Attempting to connect to MongoDB Atlas...");
-
-mongoose.connect(MONGO_URI, {
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 45000,
-})
-    .then(() => {
+// Database Connection Helper
+let isConnected = false;
+const connectDB = async () => {
+    if (isConnected) return;
+    console.log("🔗 Connecting to MongoDB...");
+    try {
+        await mongoose.connect(process.env.MONGO_URI, {
+            serverSelectionTimeoutMS: 5000,
+            socketTimeoutMS: 45000,
+        });
+        isConnected = true;
         console.log("✅ MongoDB Connected Successfully");
-    })
-    .catch(err => {
-        console.error("❌ MongoDB Connection Error!");
-        console.error("Message:", err.message);
-        console.error("Code:", err.code);
-        if (err.message.includes("IP not whitelisted")) {
-            console.error("👉 ACTION REQUIRED: Go to MongoDB Atlas -> Network Access and add your IP address (or 0.0.0.0/0 for testing).");
+    } catch (err) {
+        console.error("❌ MongoDB Connection Error:", err.message);
+        throw err;
+    }
+};
+
+// Middleware to ensure DB is connected before any API request
+const dbMiddleware = async (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+        try {
+            await connectDB();
+            next();
+        } catch (err) {
+            res.status(503).json({ error: "Database Connection Failed", details: err.message });
         }
-    });
+    } else {
+        next();
+    }
+};
+app.use(dbMiddleware);
 
 // Schemas
 // Schemas
@@ -118,6 +131,8 @@ const StudentSchema = new mongoose.Schema({
 const CandidateSchema = new mongoose.Schema({
     name: String,
     party: String,
+    photo: String,
+    partySymbol: String,
     votes: { type: Number, default: 0 },
     addedAt: { type: Date, default: Date.now }
 });
@@ -267,11 +282,11 @@ app.use((req, res, next) => {
     // Adjusting to allow necessary external resources
     res.setHeader('Content-Security-Policy',
         "default-src 'self'; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; " +
-        "img-src 'self' data: https://www.shutterstock.com; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://translate.google.com https://www.gstatic.com; " +
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://www.gstatic.com https://translate.googleapis.com; " +
+        "img-src 'self' data: https://www.shutterstock.com https://translate.google.com https://www.gstatic.com; " +
         "font-src 'self' https://fonts.gstatic.com; " +
-        "connect-src 'self' https://vote-b8ro.onrender.com; " +
+        "connect-src 'self' https://unpkg.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
         "frame-ancestors 'none';"
     );
 
@@ -289,7 +304,16 @@ const corsOptions = {
     optionsSuccessStatus: 204
 };
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
+
+// Custom error handler for JSON parsing and large payloads
+app.use((err, req, res, next) => {
+    if (err.type === 'entity.too.large') {
+        return res.status(413).json({ error: "Image size is too large. Please upload smaller images (under 50MB combined)." });
+    }
+    next(err);
+});
 
 // Disable x-powered-by specifically via express setting
 app.disable('x-powered-by');
@@ -303,6 +327,7 @@ app.use('/api/vote', voteLimiter);
 // Security: Only serve specific directories/files to prevent leaking server.js
 app.use('/css', express.static(path.join(__dirname, 'css')));
 app.use('/js', express.static(path.join(__dirname, 'js')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/voting.jpg', (req, res) => res.sendFile(path.join(__dirname, 'voting.jpg')));
 
@@ -326,9 +351,7 @@ app.get('/api/v1/session', async (req, res) => {
     const staffId = req.headers['x-staff-id'];
 
     try {
-        if (mongoose.connection.readyState !== 1) {
-            return res.status(503).json({ error: "Database offline" });
-        }
+        // Database check handled by middleware
 
         let config = await Config.findOne({ type: 'main' }).lean();
         if (!config) config = await Config.create({ type: 'main' });
@@ -401,9 +424,11 @@ app.get('/api/v1/session', async (req, res) => {
 
             const candidates = await Candidate.find({}).sort({ addedAt: 1 }).lean();
             responseData.candidates = candidates.map((c, idx) => ({
-                id: (isAdmin || electionEnded) ? c._id : `cnd_${idx + 1}`,
+                id: (adminRole !== 'NONE' || electionEnded) ? c._id : `cnd_${idx + 1}`,
                 name: c.name,
                 party: c.party,
+                photo: c.photo || null,
+                partySymbol: c.partySymbol || null,
                 votes: c.votes
             }));
 
@@ -465,12 +490,15 @@ app.get('/api/candidates/list', async (req, res) => {
         const electionEnded = config && config.electionStatus === 'ENDED';
 
         const safeCandidates = candidates.map((c, idx) => {
+            const hasPrivilegedAccess = isAdmin || electionEnded;
             const obj = {
-                id: (isAdmin || electionEnded) ? c._id : `cnd_${idx + 1}`,
+                id: hasPrivilegedAccess ? c._id : `cnd_${idx + 1}`,
                 name: c.name,
-                party: c.party
+                party: c.party,
+                photo: c.photo || null,
+                partySymbol: c.partySymbol || null
             };
-            if (isAdmin || electionEnded) obj.votes = c.votes;
+            if (hasPrivilegedAccess) obj.votes = c.votes;
             return obj;
         });
 
@@ -760,7 +788,7 @@ app.post('/api/config/update', authAdmin, async (req, res) => {
 
 // Add Candidate
 app.post('/api/candidates/add', authAdmin, async (req, res) => {
-    const { name, party } = req.body;
+    const { name, party, photo, symbol } = req.body;
     try {
         const exists = await Candidate.findOne({
             name: { $regex: new RegExp(`^${name}$`, "i") },
@@ -771,8 +799,31 @@ app.post('/api/candidates/add', authAdmin, async (req, res) => {
             return res.status(400).json({ error: "Candidate with this name and party already exists" });
         }
 
-        await Candidate.create({ name, party, votes: 0 });
+        await Candidate.create({ name, party, photo, partySymbol: symbol, votes: 0 });
         res.sendStatus(200);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Update Candidate
+app.put('/api/candidates/:id', authAdmin, async (req, res) => {
+    const { name, party, photo, symbol } = req.body;
+    try {
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (party) updateData.party = party;
+        if (photo) updateData.photo = photo;
+        if (symbol) updateData.partySymbol = symbol;
+
+        const updated = await Candidate.findByIdAndUpdate(
+            req.params.id,
+            { $set: updateData },
+            { new: true }
+        );
+
+        if (!updated) return res.status(404).json({ error: "Candidate not found" });
+        res.json(updated);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -939,6 +990,10 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.listen(port, '0.0.0.0', () => {
-    console.log(`\n🚀 SafeVote Server running at http://localhost:${port}/`);
-});
+if (require.main === module) {
+    app.listen(port, '0.0.0.0', () => {
+        console.log(`\n🚀 SafeVote Server running at http://localhost:${port}/`);
+    });
+}
+
+module.exports = app;
