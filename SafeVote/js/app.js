@@ -121,8 +121,8 @@ export class App {
     async init() {
         console.log("Initializing SafeVote App...");
 
-        // Start Live Integrity Updates
-        this.startSystemIntegrityUpdates();
+        // Defer Live Integrity Updates (non-critical, runs after UI is ready)
+        setTimeout(() => this.startSystemIntegrityUpdates(), 3000);
 
         // 1. Immediate Theme & Navigation setup
         this.setTheme(this.theme);
@@ -246,8 +246,15 @@ export class App {
             if (el) el.classList.add('hidden');
         });
         const active = document.getElementById(id);
-        if (active) active.classList.remove('hidden');
-        if (window.lucide) window.lucide.createIcons();
+        if (active) {
+            active.classList.remove('hidden');
+            // Scope icon rendering to only the active view for performance
+            if (window.lucide) {
+                requestAnimationFrame(() => {
+                    window.lucide.createIcons({ attrs: {}, nameAttr: 'data-lucide', icons: {}, el: active });
+                });
+            }
+        }
 
         // Update Election Name on Home screen if visible
         if (id === 'home-view') {
@@ -396,12 +403,6 @@ export class App {
             document.documentElement.setAttribute('data-role', this.role);
         }
 
-        // Ensure data is synchronized immediately with the current role/key
-        await api.syncData();
-
-        // Ensure candidates are loaded for everyone
-        await api.fetchCandidates();
-
         // Use preserved tab if valid for role, else default
         let targetTab = this.activeTab;
         const adminTabs = ['admin', 'students', 'staff', 'results', 'blockchain', 'guide', 'vote'];
@@ -413,8 +414,14 @@ export class App {
             if (!voterTabs.includes(targetTab)) targetTab = 'vote';
         }
 
+        // Show tab immediately with cached data, then sync in background
         this.switchTab(targetTab);
-        api.startPolling(); // Activation only after login
+        api.startPolling();
+
+        // Parallelize network calls instead of sequential await
+        Promise.all([api.syncData(), api.fetchCandidates()]).then(() => {
+            this.renderContent(); // Re-render with fresh data
+        });
     }
 
     updateNav() {
@@ -573,7 +580,12 @@ export class App {
         else if (this.activeTab === 'blockchain') this.renderBlockchainTab(container);
         else if (this.activeTab === 'guide') this.renderGuideTab(container);
 
-        if (window.lucide) window.lucide.createIcons();
+        // Scope icon rendering to content area only (avoid full DOM rescan)
+        if (window.lucide) {
+            requestAnimationFrame(() => {
+                window.lucide.createIcons({ attrs: {}, nameAttr: 'data-lucide', icons: {}, el: container });
+            });
+        }
 
         // Premium Date Picker Initialization
         if (this.activeTab === 'admin' && window.flatpickr) {
@@ -1616,7 +1628,8 @@ export class App {
             input.type = 'password';
             icon.setAttribute('data-lucide', 'eye');
         }
-        if (window.lucide) window.lucide.createIcons();
+        // Only re-render the single icon, not the whole DOM
+        if (window.lucide) window.lucide.createIcons({ attrs: {}, nameAttr: 'data-lucide', icons: {}, el: icon.parentElement });
     }
 
     async refreshResults() {
