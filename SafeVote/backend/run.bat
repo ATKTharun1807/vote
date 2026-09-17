@@ -1,9 +1,8 @@
 @echo off
 echo ====================================================
-echo  SafeVote Launcher
+echo  Starting SafeVote Django Backend on Port 8081...
 echo ====================================================
-echo Starting Django Backend...
-cd /d "%~dp0\backend"
+cd /d "%~dp0"
 call venv\Scripts\activate.bat
 python manage.py runserver 8081
 pause

@@ -6,3 +6,10 @@ dist/
 build/
 .vscode/
 .idea/
+
+# Python & Virtual Environments
+venv/
+*.pyc
+__pycache__/
+*.sqlite3
+.pytest_cache/
