@@ -1,0 +1,9 @@
+# Netlify Configuration for SafeVote Frontend
+[build]
+  publish = "SafeVote"
+  command = ""
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
