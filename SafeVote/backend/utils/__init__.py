@@ -1,0 +1,1 @@
+# SafeVote utils package

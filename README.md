@@ -1,49 +1,73 @@
-# 🛡️ SafeVote - Secure E-Voting & Election Management System
+# 🗳️ Vote Chain — Secure Digital Election Platform
 
-SafeVote is a modern, web-based electronic voting and election management platform designed for academic institutions, organizations, and department elections. It offers secure voter authentication, candidate management, department-scoped elections, live vote tracking, and real-time result analytics.
+Vote Chain (SafeVote) is a full-stack electronic voting and election management system built for academic institutions. It provides secure voter authentication, candidate management, department-scoped elections, live vote tracking, a tamper-resistant digital ledger, and real-time result analytics.
 
 ---
 
-## ✨ Features
+## ✨ Key Features
 
-- 🔒 **Secure & Confidential Voting**: Built-in credential hashing (PBKDF2/bcrypt) and tamper-resistant vote recording to ensure privacy and data integrity.
-- 👥 **Role-Based Access Control**:
-  - **Admin**: Create and manage elections, manage candidate rosters, oversee voter registration, monitor live election progress, and export results.
-  - **Voters**: Secure authentication, department-filtered ballot casting, and voting history verification.
-  - **Candidates**: Profile visibility, manifestos, and real-time tally visibility.
-- 📊 **Real-Time Analytics & Results**: Live visual charts, vote distributions, and turnout statistics.
-- 🏢 **Multi-Department Support**: Scoped voting based on departments, faculties, or customized voter categories.
-- ⚡ **Dual Deployment Architecture**: Supports both traditional Node.js Express server hosting and serverless deployment via Netlify Functions.
-- 🎨 **Responsive Modern UI**: Modern dark theme aesthetics, responsive layouts, glassmorphism UI elements, and interactive animations.
+| Feature | Description |
+|---------|-------------|
+| 🔐 **Secure Authentication** | Credential hashing (PBKDF2/bcrypt), role-based login for Students, Staff, and Admins |
+| 🗳️ **One Person — One Vote** | Duplicate vote prevention enforced at the database level |
+| 🕵️ **Confidential Ballot** | Anonymous vote recording — no link between voter identity and ballot choice |
+| 📊 **Real-Time Results** | Live charts (Chart.js), vote distributions, and turnout statistics |
+| 📜 **Digital Audit Ledger** | SHA-256 blockchain-style transaction log for tamper-resistant vote verification |
+| 🏢 **Department-Scoped Elections** | Restrict voting eligibility to specific departments or voter groups |
+| ⏱️ **Election Scheduling** | Set start/end times for elections with automatic status management |
+| 🔑 **Shared Admin Access** | Generate moderator keys to delegate election management |
+| 📄 **PDF Reports** | Export complete election results as downloadable PDF documents |
+| 🌗 **Multi-Theme UI** | Light, Dark, and SIET College (Eye-Protection) themes |
+| 📱 **Responsive Design** | Mobile-first, works on all screen sizes without horizontal overflow |
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: HTML5, Vanilla JavaScript (ES6 Modules), CSS3 (Custom Design System & Dynamic Animations), Chart.js / Firebase integrations.
-- **Backend**: Node.js, Express.js, Mongoose (MongoDB Atlas / Local MongoDB).
-- **Security & Utilities**: `bcryptjs`, `express-rate-limit`, `dotenv`, `cors`, `crypto`.
-- **Deployment**: Netlify Functions (`serverless-http`), Netlify Redirects.
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | HTML5, Vanilla JavaScript (ES6 Modules), CSS3 (Custom Design System), Lucide Icons, Chart.js, Flatpickr, jsPDF |
+| **Backend** | Python 3.10+, Django 5.x, Django REST Framework (DRF) |
+| **Database** | MongoDB (Atlas or Local) via PyMongo |
+| **Auth** | bcrypt password hashing, session tokens, admin access keys |
+| **Deployment** | Gunicorn (production), Netlify (static frontend), Render/Railway (backend) |
 
 ---
 
-## 📁 Repository Structure
+## 📁 Project Structure
 
 ```
 vote/
-├── netlify.toml               # Netlify root configuration & redirects
-└── SafeVote/                  # Primary application codebase
-    ├── api/                   # Serverless API routes
-    ├── backend/               # MongoDB models & database connections
-    ├── css/                   # Custom styles & design tokens
-    ├── js/                    # Client-side scripts (app.js, api.js, config.js)
-    ├── netlify/               # Netlify serverless functions wrapper
-    ├── index.html             # Application Single Page Interface (SPA)
-    ├── server.js              # Express backend server entry point
-    ├── package.json           # Node.js dependencies and run scripts
-    ├── run.bat                # Windows quick launcher script
-    ├── .env                   # Environment variable configurations
-    └── *.js                   # Maintenance & DB utility scripts (migration, password update, restore)
+├── netlify.toml                # Netlify static hosting config
+├── .gitignore                  # Git ignore rules
+├── README.md                   # This file — project documentation
+│
+└── SafeVote/                   # Main application
+    ├── index.html              # SPA shell (all views rendered here)
+    ├── css/
+    │   └── style.css           # Complete design system (3 themes)
+    ├── js/
+    │   ├── app.js              # Application logic, routing, UI rendering
+    │   ├── api.js              # API client, session management, polling
+    │   └── lucide.min.js       # Bundled icon library (local, no CDN delay)
+    ├── voting.jpg              # Brand logo / favicon
+    ├── .env                    # Environment variables (MongoDB URI, salts)
+    ├── run.bat                 # Windows quick launcher
+    ├── netlify.toml            # Frontend deploy config
+    │
+    └── backend/                # Django REST Framework API
+        ├── manage.py           # Django CLI (runs on port 8081)
+        ├── requirements.txt    # Python dependencies
+        ├── run.bat             # Windows backend launcher
+        ├── Procfile            # Gunicorn production entry point
+        ├── safevote_backend/   # Django settings, URLs, WSGI/ASGI
+        ├── accounts/           # Admin auth & moderator access control
+        ├── elections/          # Election config, session sync, status
+        ├── candidates/         # Candidate CRUD endpoints
+        ├── voters/             # Student & Staff auth, registration lists
+        ├── voting/             # Vote casting & SHA-256 ledger
+        ├── utils/              # PyMongo helpers, security, throttling
+        └── tests/              # Automated API test suite
 ```
 
 ---
@@ -52,83 +76,113 @@ vote/
 
 ### Prerequisites
 
-- **Node.js**: v16.x or higher
-- **npm**: v8.x or higher
-- **MongoDB**: A running MongoDB instance (Local or MongoDB Atlas cluster)
+- **Python** 3.10+
+- **MongoDB** — running locally or a MongoDB Atlas cluster
+- **pip** — Python package manager
 
-### Installation
-
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/ATKTharun1807/vote.git
-   cd vote/SafeVote
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Configure Environment Variables**:
-   Create or edit the `.env` file in the `SafeVote` directory:
-   ```env
-   MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/safevote?retryWrites=true&w=majority
-   PORT=8081
-   ADMIN_KEY_SALT=safevote_admin_salt_2024
-   BLOCKCHAIN_SALT=safevote_secret_salt_2024
-   VOTER_SALT=safevote_salt_2024
-   ```
-
-### Running Locally
-
-Start the local Node.js Express server:
+### 1. Clone & Navigate
 
 ```bash
-npm start
+git clone https://github.com/ATKTharun1807/vote.git
+cd vote/SafeVote/backend
 ```
 
-Or using Node directly:
+### 2. Create Virtual Environment
+
+**Windows:**
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
+
+**macOS / Linux:**
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+### 3. Install Dependencies
 
 ```bash
-node server.js
+pip install -r requirements.txt
 ```
 
-Open your browser and navigate to:
+### 4. Configure Environment
+
+Create or verify `SafeVote/.env` with your credentials:
+
+```env
+MONGO_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/safevote?retryWrites=true&w=majority
+PORT=8081
+ADMIN_KEY_SALT=safevote_admin_salt_2024
+BLOCKCHAIN_SALT=safevote_secret_salt_2024
+VOTER_SALT=safevote_salt_2024
 ```
-http://localhost:8081
+
+### 5. Run the Server
+
+```bash
+python manage.py runserver
+```
+
+The server starts at **http://localhost:8081** — open this in your browser.
+
+> **Quick Start (Windows):** Double-click `SafeVote/run.bat` or `SafeVote/backend/run.bat`.
+
+---
+
+## 🧪 Running Tests
+
+```bash
+cd SafeVote/backend
+python manage.py test tests
 ```
 
 ---
 
-## 🌐 Deploying to Netlify
+## 🛠️ Management Commands
 
-The repository includes `netlify.toml` pre-configured to route API requests to Netlify Serverless Functions:
-
-1. Connect your repository to Netlify.
-2. Set the build settings:
-   - **Base directory**: `SafeVote`
-   - **Build command**: `npm install`
-   - **Publish directory**: `.`
-   - **Functions directory**: `netlify/functions`
-3. Configure your Environment Variables (`MONGO_URI`, `PORT`, etc.) in the Netlify Dashboard under **Site settings > Environment variables**.
-4. Deploy the site.
+| Command | Description |
+|---------|-------------|
+| `python manage.py runserver` | Start development server on port 8081 |
+| `python manage.py test tests` | Run API compatibility test suite |
+| `python manage.py check_db_status` | Check MongoDB connection and collection counts |
+| `python manage.py migrate_depts` | Migrate student department codes |
+| `python manage.py update_passwords --password SIET --hash` | Bulk update student passwords |
+| `python manage.py restore_data` | Restore data from local backup files |
+| `python manage.py fix_collections` | Consolidate department collections |
 
 ---
 
-## 🛠️ Database Utility & Maintenance Scripts
+## 🌐 Deployment
 
-Inside the `SafeVote/` directory, several utility scripts are available for administrative and maintenance operations:
+### Frontend (Netlify)
 
-- `check_db_status.js` - Inspect MongoDB connection and collection record counts.
-- `migrate_depts.js` - Migrate voter and election data schemas across department structures.
-- `update_passwords.js` - Hash and update voter or admin credentials.
-- `restore_data.js` - Restore or seed default data collections.
-- `fix_collections.js` - Repair mismatched collection indexes or document structures.
+The frontend is purely static (HTML/CSS/JS). Deploy by pointing Netlify to the `SafeVote/` directory:
 
-Run any script using Node:
+- **Build command:** *(none — no build step needed)*
+- **Publish directory:** `SafeVote/`
+- **Base directory:** `SafeVote/`
+
+### Backend (Render / Railway)
+
+Deploy the Django backend using Gunicorn:
+
 ```bash
-node check_db_status.js
+gunicorn safevote_backend.wsgi:application --bind 0.0.0.0:$PORT
 ```
+
+Set the `MONGO_URI` and salt environment variables in your hosting dashboard.
+
+---
+
+## 👥 User Roles
+
+| Role | Access |
+|------|--------|
+| **Student** | Login → View ballot → Cast vote → View confirmation & ledger |
+| **Staff** | Login → View ballot → Cast vote → View confirmation & ledger |
+| **Admin** | Full election management: create/edit/delete candidates, start/pause/end elections, view turnout, export PDF reports, manage voter lists, schedule elections, generate shared access keys |
 
 ---
 

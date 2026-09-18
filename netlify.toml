@@ -1,15 +1,7 @@
+# Netlify Configuration for SafeVote Frontend
 [build]
-  base = "SafeVote"
-  command = "npm install"
-  publish = "."
-  functions = "netlify/functions"
-
-[functions]
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/api/:splat"
-  status = 200
+  publish = "SafeVote"
+  command = ""
 
 [[redirects]]
   from = "/*"

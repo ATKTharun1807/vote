@@ -173,11 +173,8 @@ export class App {
             return;
         }
 
-        // 4. Default Path (No Session): Block on sync to get latest election status
-        const success = await api.initAuth();
-        if (!success) {
-            this.showToast("Database connection failed. Check config.", "error");
-        }
+        // 4. Default Path (No Session): Render view immediately from cache for instant display
+        api.loadFromStorage();
 
         if (this.studentLinkMode) {
             this.showView('student-login', false);
@@ -188,6 +185,13 @@ export class App {
         } else {
             this.showHome(false);
         }
+
+        // Background sync to get latest election status without delaying icon/view rendering
+        api.initAuth().then(success => {
+            if (!success) {
+                console.warn("Initial background sync issue; polling will refresh.");
+            }
+        });
     }
 
     handleNavigation() {
