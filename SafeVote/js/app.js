@@ -457,6 +457,8 @@ export class App {
     }
 
     setTheme(theme) {
+        // Dark mode removed — fallback to light
+        if (theme === 'dark') theme = 'light';
         this.theme = theme;
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('safevote-theme', theme);
